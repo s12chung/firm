@@ -24,7 +24,7 @@ func TestRegistry_RegisterType(t *testing.T) {
 	registry := &Registry{}
 	require.NoError(registry.RegisterType(NewDefinition[registryParent]().
 		Validates(RuleMap{"Child": {}}).
-		ValidatesTopLevel(presentRule{})))
+		ValidatesSelf(presentRule{})))
 
 	registryParentType := reflect.TypeFor[registryParent]()
 	typeToValidator := map[reflect.Type]*ValueAny{
@@ -49,7 +49,7 @@ func TestRegistry_RegisterType(t *testing.T) {
 	require.Equal(map[reflect.Type][]*[]Rule{}, registry.unregisteredTypeRefs)
 
 	require.Equal(errors.New("RegisterType() with type firm.registryParent already exists"),
-		registry.RegisterType(NewDefinition[registryParent]().ValidatesTopLevel(presentRule{})))
+		registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
 }
 
 func notFoundError(data any) ErrorMap {
@@ -71,8 +71,8 @@ func TestRegistry_ValidateAll(t *testing.T) {
 	}
 	tcs := []testCase{
 		{
-			name:              "top_level",
-			definition:        NewDefinition[registryParent]().ValidatesTopLevel(presentRule{}),
+			name:              "self",
+			definition:        NewDefinition[registryParent]().ValidatesSelf(presentRule{}),
 			data:              func() registryParent { return registryParent{} },
 			expectedKeySuffix: presentRuleKey,
 			err:               presentRuleError(""),
@@ -88,7 +88,7 @@ func TestRegistry_ValidateAll(t *testing.T) {
 		},
 		{
 			name:              "not_found",
-			definition:        NewDefinition[registryParent]().ValidatesTopLevel(presentRule{}),
+			definition:        NewDefinition[registryParent]().ValidatesSelf(presentRule{}),
 			expectedKeySuffix: "NotFound",
 		},
 		{
@@ -100,7 +100,7 @@ func TestRegistry_ValidateAll(t *testing.T) {
 		},
 		{
 			name:       "invalid",
-			definition: NewDefinition[registryParent]().ValidatesTopLevel(presentRule{}),
+			definition: NewDefinition[registryParent]().ValidatesSelf(presentRule{}),
 			data:       nil,
 		},
 	}
@@ -138,7 +138,7 @@ func TestRegistry_DefaultedValidator(t *testing.T) {
 	require := require.New(t)
 
 	registry := &Registry{}
-	require.NoError(registry.RegisterType(NewDefinition[registryParent]().ValidatesTopLevel(presentRule{})))
+	require.NoError(registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
 	expected, err := NewValueAny(reflect.TypeFor[registryParent](), presentRule{})
 	require.NoError(err)
 	require.Equal(&expected, registry.DefaultedValidator(reflect.TypeFor[registryParent]()))
@@ -153,7 +153,7 @@ func TestRegistry_DefaultedValidator(t *testing.T) {
 
 func TestRegistry_Validator(t *testing.T) {
 	registry := &Registry{}
-	require.NoError(t, registry.RegisterType(NewDefinition[registryParent]().ValidatesTopLevel(presentRule{})))
+	require.NoError(t, registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
 	testParentValidator, err := NewValueAny(reflect.TypeFor[registryParent](), presentRule{})
 	require.NoError(t, err)
 

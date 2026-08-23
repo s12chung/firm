@@ -14,14 +14,14 @@ func TestNewDefinition(t *testing.T) {
 	require.Panics(func() { NewDefinition[*Child]() }) // pointer
 }
 
-func TestDefinition_ValidatesTopLevel(t *testing.T) {
+func TestDefinition_ValidatesSelf(t *testing.T) {
 	require := require.New(t)
 	rules := []Rule{presentRule{}}
 
-	definition := NewDefinition[Child]().ValidatesTopLevel(rules...)
-	require.Equal(rules, definition.TopLevelRules())
+	definition := NewDefinition[Child]().ValidatesSelf(rules...)
+	require.Equal(rules, definition.SelfRules())
 	require.Panics(func() {
-		definition.ValidatesTopLevel()
+		definition.ValidatesSelf()
 	})
 }
 

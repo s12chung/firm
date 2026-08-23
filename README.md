@@ -29,7 +29,9 @@ func init() {
 		firm.NewDefinition[Config]().
 			// On the `Config` struct "itself", NOT the `Config`'s `StructField`s,
 			// validate whether the struct is present (a non-empty value)
-			ValidatesTopLevel(rule.Present{}).
+			//
+			// Can be used to register non-Structs (not recommended though)
+			ValidatesSelf(rule.Present{}).
 			// `StructField`s are represented by a `firm.RuleMap`.
 			//
 			// For the `Queries` `StructField` as a slice,

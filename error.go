@@ -57,7 +57,7 @@ func (e ErrorMap) Finish() ErrorMap {
 	return e.ToNil()
 }
 
-// TemplateError is an error that contains a key matching a field or top level, a golang template, and template fields
+// TemplateError is an error that contains a key matching a field or "itself" as a Value, a golang template, and template fields
 type TemplateError struct {
 	Template       string
 	TemplateFields map[string]string

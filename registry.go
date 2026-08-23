@@ -45,7 +45,7 @@ func (r *Registry) RegisterType(definition *Definition) error {
 
 func (r *Registry) registeredStruct(definition *Definition) *ValueAny {
 	typ := definition.Type()
-	valueValidatorRules := definition.TopLevelRules()
+	valueValidatorRules := definition.SelfRules()
 	if len(definition.RuleMap()) > 0 {
 		structValidator := mustNewValidator(func() (StructAny, error) { return NewStructAny(definition.typ, definition.RuleMap()) })
 		for fieldName := range structValidator.ruleMap {

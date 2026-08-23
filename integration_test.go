@@ -53,7 +53,7 @@ func fullParent() parent {
 	}
 }
 
-type topLevelValidates struct {
+type selfValidates struct {
 	Primitive  int
 	Primitive2 int
 }
@@ -81,7 +81,7 @@ func init() {
 	testRegistry.MustRegisterType(NewDefinition[Child]().Validates(RuleMap{
 		"Validates": {presentRule{}},
 	}))
-	testRegistry.MustRegisterType(NewDefinition[topLevelValidates]().ValidatesTopLevel(presentRule{}))
+	testRegistry.MustRegisterType(NewDefinition[selfValidates]().ValidatesSelf(presentRule{}))
 }
 
 type integrationTestCase struct {
@@ -115,20 +115,12 @@ var integrationAnyTestCases = []integrationTestCase{
 		var i any
 		return &i
 	}},
-	{name: "Data___topLevelValidates_full", isValid: true, anyF: func() any {
-		return topLevelValidates{Primitive: 1, Primitive2: 2}
-	}},
-	{name: "Data___topLevelValidates_half_raw", isValid: true, anyF: func() any {
-		return topLevelValidates{Primitive: 1}
-	}},
-	{name: "Data___topLevelValidates_half_pt", isValid: true, anyF: func() any {
-		return &topLevelValidates{Primitive: 1}
-	}},
-	{name: "Data___topLevelValidates_empty_raw", isValid: false, anyF: func() any {
-		return topLevelValidates{}
-	}},
-	{name: "Data___topLevelValidates_empty_pt", isValid: false, anyF: func() any {
-		return &topLevelValidates{}
+	{name: "Data___selfValidates_full", isValid: true, anyF: func() any { return selfValidates{Primitive: 1, Primitive2: 2} }},
+	{name: "Data___selfValidates_half_raw", isValid: true, anyF: func() any { return selfValidates{Primitive: 1} }},
+	{name: "Data___selfValidates_half_pt", isValid: true, anyF: func() any { return &selfValidates{Primitive: 1} }},
+	{name: "Data___selfValidates_empty_raw", isValid: false, anyF: func() any { return selfValidates{} }},
+	{name: "Data___selfValidates_empty_pt", isValid: false, anyF: func() any {
+		return &selfValidates{}
 	}},
 	{name: "Empty", isValid: false, f: func() parent {
 		return parent{}

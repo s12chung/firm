@@ -13,26 +13,26 @@ func NewDefinition[T any]() *Definition {
 		panic(fmt.Sprintf("NewDefinition created with pointer type, dereference it: %v", typ.String()))
 	}
 	validator := &Definition{
-		typ:           typ,
-		topLevelRules: []Rule{},
-		ruleMap:       RuleMap{},
+		typ:       typ,
+		selfRules: []Rule{},
+		ruleMap:   RuleMap{},
 	}
 	return validator
 }
 
-// Definition is a definition of a validation for a type; non-structs support top-level rules only
+// Definition is a definition of a validation for a type; non-structs support ValidatesSelf rules only
 type Definition struct {
-	typ           reflect.Type
-	topLevelRules []Rule
-	ruleMap       RuleMap
+	typ       reflect.Type
+	selfRules []Rule
+	ruleMap   RuleMap
 }
 
-// ValidatesTopLevel defines rules at top level object
-func (s *Definition) ValidatesTopLevel(rules ...Rule) *Definition {
-	if len(s.topLevelRules) != 0 {
-		panic(fmt.Sprintf("ValidatesTopLevel() called twice in type: %v", s.typ.String()))
+// ValidatesSelf defines rules of "itself" as a Value
+func (s *Definition) ValidatesSelf(rules ...Rule) *Definition {
+	if len(s.selfRules) != 0 {
+		panic(fmt.Sprintf("ValidatesSelf() called twice in type: %v", s.typ.String()))
 	}
-	s.topLevelRules = rules
+	s.selfRules = rules
 	return s
 }
 
@@ -54,8 +54,8 @@ func (s *Definition) Validates(ruleMap RuleMap) *Definition {
 // Type returns the type for the definition
 func (s *Definition) Type() reflect.Type { return s.typ }
 
-// TopLevelRules return the rules that apply to the top level
-func (s *Definition) TopLevelRules() []Rule { return s.topLevelRules }
+// SelfRules return the rules that apply to "itself" as a Value
+func (s *Definition) SelfRules() []Rule { return s.selfRules }
 
 // RuleMap returns the map of rules for the structure
 func (s *Definition) RuleMap() RuleMap { return s.ruleMap }

@@ -133,9 +133,9 @@ func TestErrorKey_RootTypeName(t *testing.T) {
 		expected string
 	}{
 		{name: "deep", errorKey: "firm.parent.Field.[0].InnerField.TheError", expected: "firm.parent"},
-		{name: "one_level", errorKey: "firm.parent.Field.TheError", expected: "firm.parent"},
-		{name: "one_level", errorKey: "firm.parent.Field.TheError", expected: "firm.parent"},
-		{name: "top_level", errorKey: "firm.parent.TheError", expected: "firm.parent"},
+		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "firm.parent"},
+		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "firm.parent"},
+		{name: "self", errorKey: "firm.parent.TheError", expected: "firm.parent"},
 		{name: "empty", errorKey: "", expected: ""},
 	}
 	for _, tc := range tcs {
@@ -154,8 +154,8 @@ func TestErrorKey_ValueName(t *testing.T) {
 	}{
 		{name: "deep", errorKey: "firm.parent.Field.[0].InnerField.TheError", expected: "InnerField"},
 		{name: "slice", errorKey: "firm.parent.Field.[0].TheError", expected: "[0]"},
-		{name: "one_level", errorKey: "firm.parent.Field.TheError", expected: "Field"},
-		{name: "top_level", errorKey: "firm.parent.TheError", expected: "firm.parent"},
+		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "Field"},
+		{name: "self", errorKey: "firm.parent.TheError", expected: "firm.parent"},
 		{name: "just_type", errorKey: "firm.parent", expected: ""},
 		{name: "empty", errorKey: "", expected: ""},
 	}
@@ -174,8 +174,8 @@ func TestErrorKey_ErrorName(t *testing.T) {
 		expected string
 	}{
 		{name: "deep", errorKey: "firm.parent.Field.[0].InnerField.TheError", expected: "TheError"},
-		{name: "one_level", errorKey: "firm.parent.Field.TheError", expected: "TheError"},
-		{name: "top_level", errorKey: "firm.parent.TheError", expected: "TheError"},
+		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "TheError"},
+		{name: "self", errorKey: "firm.parent.TheError", expected: "TheError"},
 		{name: "empty", errorKey: "", expected: ""},
 	}
 	for _, tc := range tcs {
