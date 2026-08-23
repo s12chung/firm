@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/s12chung/text2anki/pkg/firm"
+	"github.com/s12chung/firm"
 )
 
 // TrimSpace is a rule.Attribute that calls strings.TrimSpace on the string

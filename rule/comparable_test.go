@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/s12chung/text2anki/pkg/firm"
+	"github.com/s12chung/firm"
 )
 
 func TestEqual_ValidateAll(t *testing.T) {
@@ -106,7 +106,7 @@ func TestGreater_ErrorMap(t *testing.T) {
 
 func TestGreater_Name(t *testing.T) { require.Equal(t, greaterName, Greater[int]{}.Name()) }
 
-//nolint:revive,stylecheck // for tests
+//nolint:revive,staticcheck // for tests
 func testComparableRule_ValidateAll[T comparable](t *testing.T, rule comparableRule[T], hasError bool, data T) {
 	require := require.New(t)
 	var expected firm.ErrorMap
@@ -117,7 +117,7 @@ func testComparableRule_ValidateAll[T comparable](t *testing.T, rule comparableR
 	require.Equal(expected, rule.ValidateValue(reflect.ValueOf(data)))
 }
 
-//nolint:revive,stylecheck // for tests
+//nolint:revive,staticcheck // for tests
 func testComparableRule_TypeCheck[T comparableRule[int]](t *testing.T) {
 	i := 0
 	badCondition := "is not a int"

@@ -3,7 +3,7 @@ package rule
 import (
 	"reflect"
 
-	"github.com/s12chung/text2anki/pkg/firm"
+	"github.com/s12chung/firm"
 )
 
 // Not returns Not's the firm.RuleBasic's ValidateValue()

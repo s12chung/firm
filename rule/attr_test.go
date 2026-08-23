@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/s12chung/text2anki/pkg/firm"
-	"github.com/s12chung/text2anki/pkg/firm/attr"
+	"github.com/s12chung/firm"
+	"github.com/s12chung/firm/attr"
 )
 
 func TestAttr_ValidateValue(t *testing.T) {
@@ -21,7 +21,7 @@ func TestAttr_ValidateValue(t *testing.T) {
 	}{
 		{name: "normal", data: " ", rule: intEqual(1)},
 		{name: "invalid", data: " ", rule: intEqual(2), errorMap: intEqual(2).ErrorMap()},
-		{name: "invalid_with_empty_template_fields", data: "", rule: Present{}, errorMap: errorMapPresent},
+		{name: "invalid_with_empty_template_fields", data: "", rule: Present{}, errorMap: errMapPresent},
 	}
 
 	for _, tc := range tcs {

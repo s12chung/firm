@@ -42,7 +42,7 @@ func NewStructAny(typ reflect.Type, ruleMap RuleMap) (StructAny, error) {
 
 	rm := map[string]*[]Rule{}
 	for k, rules := range ruleMap {
-		rm[k] = &rules //nolint:exportloopref // want to pass the pointer
+		rm[k] = &rules
 	}
 	return StructAny{typ: typ, ruleMap: rm}, nil
 }
@@ -74,7 +74,8 @@ func (s StructAny) ValidateMerge(value reflect.Value, key string, errorMap Error
 		return
 	}
 	for fieldName, rules := range s.ruleMap {
-		field, _ := value.Type().FieldByName(fieldName)
+		//nolint:godox // want the comment
+		field, _ := value.Type().FieldByName(fieldName) // TODO: cache field indexes at NewStructAny to avoid per-validation lookups?
 		// no control over types, so indirect
 		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, field.Name), errorMap, *rules)
 	}

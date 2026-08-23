@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/s12chung/text2anki/pkg/firm"
+	"github.com/s12chung/firm"
 )
 
 func TestNot_ValidateValue(t *testing.T) {
@@ -20,7 +20,7 @@ func TestNot_ValidateValue(t *testing.T) {
 	}{
 		{name: "normal", data: "", rule: Present{}},
 		{name: "invalid", data: " ", rule: Present{}, errorMap: Present{}.ErrorMap()},
-		{name: "invalid_with_empty_template_fields", data: " ", rule: Present{}, errorMap: errorMapPresent},
+		{name: "invalid_with_empty_template_fields", data: " ", rule: Present{}, errorMap: errMapPresent},
 	}
 
 	for _, tc := range tcs {

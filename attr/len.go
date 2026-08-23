@@ -3,7 +3,7 @@ package attr
 import (
 	"reflect"
 
-	"github.com/s12chung/text2anki/pkg/firm"
+	"github.com/s12chung/firm"
 )
 
 // Len is a rule.Attribute that returns the reflect.Len attribute
@@ -24,7 +24,7 @@ func (l Len) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 	switch typ.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.Chan, reflect.String:
 		return nil
-	case reflect.Ptr:
+	case reflect.Pointer:
 		// reflect.Len only handles pointers to Arrays
 		if typ.Elem().Kind() == reflect.Array {
 			return nil

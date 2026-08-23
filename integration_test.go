@@ -8,6 +8,7 @@ import (
 
 type parent struct {
 	Child
+
 	Primitive               int
 	Basic                   Child
 	Pt                      *Child

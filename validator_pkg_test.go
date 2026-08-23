@@ -5,14 +5,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/s12chung/text2anki/pkg/firm"
-	"github.com/s12chung/text2anki/pkg/firm/rule"
+	"github.com/s12chung/firm"
+	"github.com/s12chung/firm/rule"
 )
 
 type nonExport struct {
+	privateChild
+
 	Public  string
 	private string
-	privateChild
 }
 
 type privateChild struct {

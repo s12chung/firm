@@ -3,5 +3,5 @@ package attr
 
 import "reflect"
 
-var intType = reflect.TypeOf(0)
-var stringType = reflect.TypeOf("")
+var intType = reflect.TypeFor[int]()
+var stringType = reflect.TypeFor[string]()

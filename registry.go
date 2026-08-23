@@ -5,7 +5,11 @@ import (
 	"reflect"
 )
 
-// Registry registers types find the right validator to validate with
+// Registry registers types to find the right validator to validate with.
+//
+// RegisterType must not be called while validating; register all types upfront,
+// e.g. in init(). Once registration completes, ValidateAny/ValidateValue/TypeCheck
+// are safe for concurrent use.
 type Registry struct {
 	typeToValidator      map[reflect.Type]*ValueAny
 	unregisteredTypeRefs map[reflect.Type][]*[]Rule

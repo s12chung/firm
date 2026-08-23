@@ -26,12 +26,12 @@ var structValidatorTestCases = []structValidatorTestCase{
 	//
 	{name: "Embed___child_validates_ok", errorKeys: nil, f: func() parent {
 		changeParent := fullParent()
-		changeParent.Child.NoValidates = ""
+		changeParent.NoValidates = ""
 		return changeParent
 	}},
 	{name: "Embed___child_validates_zero", errorKeys: []string{"Child.Validates"}, f: func() parent {
 		changeParent := fullParent()
-		changeParent.Child.Validates = ""
+		changeParent.Validates = ""
 		return changeParent
 	}},
 	{name: "Embed___child_empty", errorKeys: []string{"Child", "Child.Validates"}, f: func() parent {
@@ -474,7 +474,7 @@ func TestNewStructAny(t *testing.T) {
 		{name: "pointer", data: &Child{}, err: errors.New("type, *firm.Child, is not a Struct")},
 		{name: "non_matching_field", data: Child{}, ruleMap: RuleMap{"No": {presentRule{}}}, err: errors.New("field, No, not found in type: firm.Child")},
 		{name: "no_matching_rule", data: Child{}, ruleMap: RuleMap{"Validates": {noMatchingRule}},
-			err: fmt.Errorf("field, Validates, in firm.Child: %w", noMatchingRule.TypeCheck(reflect.TypeOf("")))},
+			err: fmt.Errorf("field, Validates, in firm.Child: %w", noMatchingRule.TypeCheck(reflect.TypeFor[string]()))},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -488,7 +488,7 @@ func TestNewStructAny(t *testing.T) {
 
 			require.NoError(err)
 			require.Equal(reflect.TypeOf(tc.data), validator.typ)
-			require.Equal(len(tc.ruleMap), len(validator.ruleMap))
+			require.Len(validator.ruleMap, len(tc.ruleMap))
 			for k, v := range tc.ruleMap {
 				require.Equal(v, *validator.ruleMap[k])
 			}
@@ -509,7 +509,7 @@ func TestStruct_Validate(t *testing.T) {
 }
 
 func TestStructAny_ValidateAll(t *testing.T) {
-	validator := testRegistry.Validator(reflect.TypeOf(parent{}))
+	validator := testRegistry.Validator(reflect.TypeFor[parent]())
 
 	tcs := []struct {
 		name   string
@@ -537,7 +537,7 @@ func TestStructAny_ValidateAll(t *testing.T) {
 }
 
 func TestStructAny_TypeCheck(t *testing.T) {
-	validator, err := NewStructAny(reflect.TypeOf(parent{}), RuleMap{})
+	validator, err := NewStructAny(reflect.TypeFor[parent](), RuleMap{})
 	require.NoError(t, err)
 	badCondition := "is not matching Struct of type firm.parent"
 
@@ -610,7 +610,7 @@ func TestNewSliceAny(t *testing.T) {
 		{name: "pointer", data: &[]Child{}, err: errors.New("type, *[]firm.Child, is not a Slice or Array")},
 		{name: "not_slice", data: Child{}, err: errors.New("type, firm.Child, is not a Slice or Array")},
 		{name: "no_matching_rule", data: []Child{}, rules: []Rule{noMatchingRule},
-			err: fmt.Errorf("element type: %w", noMatchingRule.TypeCheck(reflect.TypeOf(Child{})))},
+			err: fmt.Errorf("element type: %w", noMatchingRule.TypeCheck(reflect.TypeFor[Child]()))},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -704,7 +704,7 @@ func TestNewValueAny(t *testing.T) {
 		{name: "normal", data: i, rules: []Rule{intRule}},
 		{name: "int_pointer", data: &i, err: errors.New("type, *int, is a Pointer, not recommended")},
 		{name: "nil_type", data: nil, err: errors.New("type is nil, not recommended")},
-		{name: "not_int", data: []int{}, rules: []Rule{intRule}, err: intRule.TypeCheck(reflect.TypeOf([]int{}))},
+		{name: "not_int", data: []int{}, rules: []Rule{intRule}, err: intRule.TypeCheck(reflect.TypeFor[[]int]())},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -751,9 +751,9 @@ func TestValueAny_ValidateAll(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			require := require.New(t)
 
-			validator, err := NewValueAny(reflect.TypeOf(true), tc.rule)
+			validator, err := NewValueAny(reflect.TypeFor[bool](), tc.rule)
 			if tc.newError {
-				require.Equal(NewRuleTypeError("onlyKindRule", reflect.TypeOf(true), "is not string"), err)
+				require.Equal(NewRuleTypeError("onlyKindRule", reflect.TypeFor[bool](), "is not string"), err)
 				return
 			}
 
@@ -766,7 +766,7 @@ func TestValueAny_ValidateAll(t *testing.T) {
 		})
 	}
 
-	validator, err := NewValueAny(reflect.TypeOf(0), presentRule{})
+	validator, err := NewValueAny(reflect.TypeFor[int](), presentRule{})
 	require.NoError(t, err)
 	type testCase struct {
 		name string

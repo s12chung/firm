@@ -8,7 +8,7 @@ import (
 )
 
 func TestLen_Type(t *testing.T) {
-	require.Equal(t, reflect.TypeOf(0), Len{}.Type())
+	require.Equal(t, reflect.TypeFor[int](), Len{}.Type())
 }
 
 func TestLen_Get(t *testing.T) {

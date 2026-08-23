@@ -8,7 +8,7 @@ import (
 )
 
 func TestTrimSpace_Type(t *testing.T) {
-	require.Equal(t, reflect.TypeOf(""), TrimSpace{}.Type())
+	require.Equal(t, reflect.TypeFor[string](), TrimSpace{}.Type())
 }
 
 func TestTrimSpace_Get(t *testing.T) {

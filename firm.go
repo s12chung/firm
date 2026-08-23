@@ -14,7 +14,8 @@ var RegisterType = DefaultRegistry.RegisterType
 // ValidateAny validates the data with the DefaultRegistry
 var ValidateAny = DefaultRegistry.ValidateAny
 
-// DefaultRegistry is the registry used for global functions
+// DefaultRegistry is the registry used for global functions.
+// Like any Registry, register all types upfront (e.g. in init()) and do not register while validating.
 var DefaultRegistry = &Registry{}
 
 // DefaultValidator is the validator used by registries for not found types when DefaultValidator is not defined

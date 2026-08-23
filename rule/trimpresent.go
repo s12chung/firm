@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/s12chung/text2anki/pkg/firm"
+	"github.com/s12chung/firm"
 )
 
 // TrimPresent checks if data is not "" when strings.TrimSpace is applied
@@ -32,8 +32,8 @@ func (t TrimPresent) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 }
 
 // ErrorMap returns the ErrorMap returned from ValidateValue
-func (t TrimPresent) ErrorMap() firm.ErrorMap { return errorMapTrimPresent }
+func (t TrimPresent) ErrorMap() firm.ErrorMap { return errMapTrimPresent }
 
 const trimPresentName = "TrimPresent"
 
-var errorMapTrimPresent = firm.ErrorMap{trimPresentName: firm.TemplateError{Template: "is just spaces or empty"}}
+var errMapTrimPresent = firm.ErrorMap{trimPresentName: firm.TemplateError{Template: "is just spaces or empty"}}

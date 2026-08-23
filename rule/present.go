@@ -3,7 +3,7 @@ package rule
 import (
 	"reflect"
 
-	"github.com/s12chung/text2anki/pkg/firm"
+	"github.com/s12chung/firm"
 )
 
 // Present checks if data is non-Zero, valid, and not of length 0
@@ -12,15 +12,15 @@ type Present struct{}
 // ValidateValue returns true if the data is valid (assumes TypeCheck is called)
 func (p Present) ValidateValue(value reflect.Value) firm.ErrorMap {
 	if !value.IsValid() || value.IsZero() {
-		return errorMapPresent
+		return errMapPresent
 	}
 	//nolint:exhaustive // only checking against .Len() kinds
 	switch value.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Chan, reflect.Map, reflect.String:
 		if value.Len() == 0 {
-			return errorMapPresent
+			return errMapPresent
 		}
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return p.ValidateValue(value.Elem())
 	}
 	return nil
@@ -30,6 +30,6 @@ func (p Present) ValidateValue(value reflect.Value) firm.ErrorMap {
 func (p Present) TypeCheck(_ reflect.Type) *firm.RuleTypeError { return nil }
 
 // ErrorMap returns the ErrorMap returned from ValidateValue
-func (p Present) ErrorMap() firm.ErrorMap { return errorMapPresent }
+func (p Present) ErrorMap() firm.ErrorMap { return errMapPresent }
 
-var errorMapPresent = firm.ErrorMap{"Present": firm.TemplateError{Template: "is not present"}}
+var errMapPresent = firm.ErrorMap{"Present": firm.TemplateError{Template: "is not present"}}

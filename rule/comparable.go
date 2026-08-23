@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"unicode"
 
-	"github.com/s12chung/text2anki/pkg/firm"
+	"github.com/s12chung/firm"
 )
 
 const equalName = "Equal"
@@ -110,7 +110,7 @@ type comparableRule[T comparable] interface {
 }
 
 func comparableValidateValue[T comparable](rule comparableRule[T], value reflect.Value) firm.ErrorMap {
-	data, ok := value.Interface().(T)
+	data, ok := reflect.TypeAssert[T](value)
 	if !ok {
 		panic("comparable ValidateValue type not matching type--called before TypeCheck?")
 	}

@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/s12chung/text2anki/pkg/firm"
-	"github.com/s12chung/text2anki/pkg/firm/rule"
+	"github.com/s12chung/firm"
+	"github.com/s12chung/firm/rule"
 )
 
 func testTypeCheck(t *testing.T, data any, ruleName, badCondition string, attr rule.Attribute) {
