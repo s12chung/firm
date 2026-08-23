@@ -1,16 +1,21 @@
 # firm
 
-Declarative validation rules in plain Go. Zero dependencies.
+> Declarative validation rules in plain Go--no struct tags.
 
-- Register validation rules once, even whole object graphs (nested structs, pointers and slices)
-- Composable and fully customizable validation rules
-- Validations return structured, templated `error`s
+- Register validation rules once per type; nested structs, pointers, and slices recurse automatically
+- Validations return structured, templated, easy to inspect `error`s
+- Compose validation rules or implement your own with a 2 function interface
+- Zero runtime dependencies
 
 ## Quickstart
 
 Register a definition per type (typically in `init()`, which avoids concurrent `map` changes), then validate:
 
 ```go
+//
+// cmd/firm-try/main.go
+//
+
 type Config struct {
 	Queries []Query `json:"queries,omitempty"`
 }
@@ -63,7 +68,7 @@ func readConfig(body []byte) (Config, error) {
 }
 ```
 
-An invalid config returns a `firm.ErrorMap`, which implements `Error() string`. Try running [cmd/firm-try/main.go](cmd/firm-try/main.go)--each command's output is commented below:
+An invalid config returns a `firm.ErrorMap`, which implements `Error() string`. Try running the code above in [cmd/firm-try/main.go](cmd/firm-try/main.go)--each command's output is commented below:
 
 ```sh
 go run github.com/s12chung/firm/cmd/firm-try@latest '{"queries":[{"str":""},{"pos":"Noun"}]}'
@@ -100,9 +105,9 @@ Feel free to make your own registry or skip the registry entirely:
 
 ```go
 (&firm.Registry{}).MustRegisterType(firm.NewDefinition[Query]().
-    Validates(firm.RuleMap{
-        "Str": {rule.Present{}},
-    }),
+	Validates(firm.RuleMap{
+		"Str": {rule.Present{}},
+	}),
 )
 
 typedValueValidator := firm.MustNewValue[int](rule.Greater[int]{To: 0})
@@ -197,10 +202,8 @@ func (e Even) ErrorMap() firm.ErrorMap {
 	return firm.ErrorMap{"Even": firm.TemplateError{Template: "is not even"}}
 }
 
-//
 // Same rule as the `firm.Rule` implementation above
 // Validate() is ValidateValue()'s logic, but typed
-//
 func (e Even) Validate(data int) firm.ErrorMap {
 	if data%2 == 0 {
 		return nil
@@ -219,10 +222,10 @@ type Attr struct {
 	Rule firm.RuleBasic
 }
 
-// trimPresent = Not (TrimSpaced Value Equal To "")
+// trimPresent = Not (TrimSpace Value Equal To "")
 trimPresent := rule.Not{ // 1. Not
 	Rule: rule.Attr{
-		Of:   attr.TrimSpace{},           // 2. TrimSpaced Value
+		Of:   attr.TrimSpace{},           // 2. TrimSpace Value
 		Rule: rule.Equal[string]{To: ""}, // 3. Equal To ""
 	},
 }
@@ -262,7 +265,7 @@ The `firm` package provides:
 | `firm.SliceAny` | slices and arrays, running rules on all elements |
 | `firm.RuleValidator{Rule}` | convenience `firm.Validator` struct that wraps around a `firm.Rule` |
 
-`firm.ValidatorTyped[T any]` can call `Validate(data T) ErrorMap` via generics too. Avoids reflection and enforces type safety. `Any`-suffixed validators above have typed variants which implement `firm.ValidatorTyped[T any]`:
+Via generics, `firm.ValidatorTyped[T any]` can call `Validate(data T) ErrorMap`. Avoids reflection and enforces type safety. `Any`-suffixed validators above have typed variants which implement `firm.ValidatorTyped[T any]`:
 
 - `firm.Value[T]`, `firm.Struct[T]`, and `firm.Slice[T, U]`
 
