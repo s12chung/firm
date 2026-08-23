@@ -281,3 +281,7 @@ type ValidatorTyped[T any] interface {
 ## Examples
 
 Extracted out of [s12chung/text2anki](https://github.com/s12chung/text2anki), where there are real examples validating database entries and HTTP requests.
+
+## License
+
+[MPL-2.0](LICENSE)--changes to firm's own files must be shared under the same license; apps depending on firm are unaffected.
