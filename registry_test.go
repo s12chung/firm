@@ -103,6 +103,10 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			definition: NewDefinition[registryParent]().ValidatesSelf(presentRule{}),
 			data:       nil,
 		},
+		{
+			name:       "typed_nil",
+			definition: NewDefinition[registryParent]().ValidatesSelf(presentRule{}),
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -115,6 +119,11 @@ func TestRegistry_ValidateAll(t *testing.T) {
 				var data any
 				require.Equal(errInvalidValue, registry.ValidateAny(data))
 				require.Equal(notFoundError(&data), registry.ValidateAny(&data))
+				return
+			}
+			if tc.name == "typed_nil" {
+				var data *registryParent
+				require.Equal(errInvalidValue, registry.ValidateAny(data))
 				return
 			}
 			if strings.HasPrefix(tc.name, "not_found") {

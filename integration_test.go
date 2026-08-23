@@ -15,18 +15,21 @@ type parent struct {
 	Any                     any
 	Array                   []Child
 	ArrayPt                 []*Child
+	PtArray                 *[]Child
 	PrimitiveEmptyValidates int
 	BasicEmptyValidates     Child
 	PtEmptyValidates        *Child
 	AnyEmptyValidates       any
 	ArrayValidates          []Child
 	ArrayPtValidates        []*Child
+	PtArrayValidates        *[]Child
 	PrimitiveNoValidates    int
 	BasicNoValidates        Child
 	PtNoValidates           *Child
 	AnyNoValidates          any
 	ArrayNoValidates        []Child
 	ArrayPtNoValidates      []*Child
+	PtArrayNoValidates      *[]Child
 }
 
 type Child struct {
@@ -43,13 +46,13 @@ func fullParent() parent {
 		Child: *fc(),
 		// validate field + Child
 		Primitive: 1, Basic: *fc(), Pt: fc(), Any: *fc(),
-		Array: []Child{*fc(), *fc()}, ArrayPt: []*Child{fc(), fc()},
+		Array: []Child{*fc(), *fc()}, ArrayPt: []*Child{fc(), fc()}, PtArray: &[]Child{*fc(), *fc()},
 		// validate Child
 		PrimitiveEmptyValidates: 1, BasicEmptyValidates: *fc(), PtEmptyValidates: fc(), AnyEmptyValidates: *fc(),
-		ArrayValidates: []Child{*fc(), *fc()}, ArrayPtValidates: []*Child{fc(), fc()},
+		ArrayValidates: []Child{*fc(), *fc()}, ArrayPtValidates: []*Child{fc(), fc()}, PtArrayValidates: &[]Child{*fc(), *fc()},
 		// validate none
 		PrimitiveNoValidates: 1, BasicNoValidates: *fc(), PtNoValidates: fc(), AnyNoValidates: *fc(),
-		ArrayNoValidates: []Child{*fc(), *fc()}, ArrayPtNoValidates: []*Child{fc(), fc()},
+		ArrayNoValidates: []Child{*fc(), *fc()}, ArrayPtNoValidates: []*Child{fc(), fc()}, PtArrayNoValidates: &[]Child{*fc(), *fc()},
 	}
 }
 
@@ -71,12 +74,14 @@ func init() {
 		"Any":                     {presentRule{}},
 		"Array":                   {presentRule{}},
 		"ArrayPt":                 {presentRule{}},
+		"PtArray":                 {presentRule{}},
 		"PrimitiveEmptyValidates": {},
 		"BasicEmptyValidates":     {},
 		"PtEmptyValidates":        {},
 		"AnyEmptyValidates":       {},
 		"ArrayValidates":          {},
 		"ArrayPtValidates":        {},
+		"PtArrayValidates":        {},
 	}))
 	testRegistry.MustRegisterType(NewDefinition[Child]().Validates(RuleMap{
 		"Validates": {presentRule{}},

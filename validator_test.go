@@ -324,6 +324,39 @@ var structValidatorTestCases = []structValidatorTestCase{
 	}},
 
 	//
+	// PtArrayValidates
+	//
+	{name: "PtArrayValidates___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range *changeParent.PtArrayValidates {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "PtArrayValidates___child_validates_zero",
+		errorKeys: []string{"PtArrayValidates.[0].Validates", "PtArrayValidates.[1].Validates"}, f: func() parent {
+			changeParent := fullParent()
+			(*changeParent.PtArrayValidates)[0].Validates = ""
+			(*changeParent.PtArrayValidates)[1].Validates = ""
+			return changeParent
+		}},
+	{name: "PtArrayValidates___child_validates_one_zero", errorKeys: []string{"PtArrayValidates.[0].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		(*changeParent.PtArrayValidates)[0].Validates = ""
+		return changeParent
+	}},
+	{name: "PtArrayValidates___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.PtArrayValidates = &[]Child{}
+		return changeParent
+	}},
+	{name: "PtArrayValidates___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.PtArrayValidates = nil
+		return changeParent
+	}},
+
+	//
 	// PrimitiveNoValidates
 	//
 	{name: "PrimitiveNoValidates___zero", errorKeys: nil, f: func() parent {
@@ -518,6 +551,7 @@ func TestStructAny_ValidateAll(t *testing.T) {
 	}{
 		{name: "not_struct", data: 1, result: typeCheckErrorResult(validator, 1)},
 		{name: "invalid", data: nil, result: errInvalidValue},
+		{name: "nil_pointer", data: (*parent)(nil), result: errInvalidValue},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
@@ -649,6 +683,7 @@ func TestSliceAny_ValidateAll(t *testing.T) {
 	}{
 		{name: "not_slice", data: 1, result: typeCheckErrorResult(validator, 1)},
 		{name: "invalid", data: nil, result: errInvalidValue},
+		{name: "nil_pointer", data: (*[]sliceValidatorElement)(nil), result: errInvalidValue},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
@@ -744,6 +779,7 @@ func TestValueAny_ValidateAll(t *testing.T) {
 		typeCheckError bool
 	}{
 		{name: "invalid", rule: presentRule{}, data: nil, result: errInvalidValue},
+		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: errInvalidValue},
 		{name: "bad_type_with_rule_validator", rule: onlyKindRule{kind: reflect.String}, data: 1, newError: true},
 		{name: "bad_type_after_new", rule: onlyKindRule{kind: reflect.Bool}, data: 1, typeCheckError: true},
 	}
@@ -820,6 +856,7 @@ func TestRuleValidator_ValidateAll(t *testing.T) {
 		typeCheckError bool
 	}{
 		{name: "invalid", rule: presentRule{}, data: nil, result: errInvalidValue},
+		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: errInvalidValue},
 		{name: "bad_type", rule: onlyKindRule{kind: reflect.Bool}, data: 1, typeCheckError: true},
 	}
 	for _, tc := range edgeTcs {
