@@ -6,6 +6,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewDefinition(t *testing.T) {
+	require := require.New(t)
+
+	require.NotPanics(func() { NewDefinition[Child]() })
+	require.NotPanics(func() { NewDefinition[int]() }) // non-struct
+	require.Panics(func() { NewDefinition[*Child]() }) // pointer
+}
+
 func TestDefinition_ValidatesTopLevel(t *testing.T) {
 	require := require.New(t)
 	rules := []Rule{presentRule{}}

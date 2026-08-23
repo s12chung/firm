@@ -20,7 +20,7 @@ func NewDefinition[T any]() *Definition {
 	return validator
 }
 
-// Definition is a definition of a validation for structs
+// Definition is a definition of a validation for a type; non-structs support top-level rules only
 type Definition struct {
 	typ           reflect.Type
 	topLevelRules []Rule
