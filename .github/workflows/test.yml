@@ -14,4 +14,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.1
+          install-only: true
       - run: make test

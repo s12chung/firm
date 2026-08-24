@@ -76,7 +76,7 @@ func (s StructAny) ValidateMerge(value reflect.Value, key string, errorMap Error
 	for fieldName, rules := range s.ruleMap {
 		//nolint:godox // want the comment
 		field, _ := value.Type().FieldByName(fieldName) // TODO: cache field indexes at NewStructAny to avoid per-validation lookups?
-		// no control over types, so indirect
+		// no control over types, so indirect, checks v.IsValid() downstream at Rule.ValidateValue() implementation
 		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, field.Name), errorMap, *rules)
 	}
 }
@@ -152,7 +152,7 @@ func (s SliceAny) ValidateMerge(value reflect.Value, key string, errorMap ErrorM
 		return
 	}
 	for i := range value.Len() {
-		// no control over types, so indirect
+		// no control over types, so indirect, checks v.IsValid() downstream at Rule.ValidateValue() implementation
 		v := indirect(value.Index(i))
 		validateMerge(v, joinKeys(key, "["+strconv.Itoa(i)+"]"), errorMap, s.elementRules)
 	}
