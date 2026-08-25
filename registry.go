@@ -45,20 +45,20 @@ func (r *Registry) RegisterType(definition *Definition) error {
 
 func (r *Registry) registeredStruct(definition *Definition) *ValueAny {
 	typ := definition.Type()
-	valueValidatorRules := definition.SelfRules()
+	selfRules := definition.SelfRules()
 	if len(definition.RuleMap()) > 0 {
 		structValidator := mustNewValidator(func() (StructAny, error) { return NewStructAny(definition.typ, definition.RuleMap()) })
 		for fieldName := range structValidator.ruleMap {
 			field, _ := typ.FieldByName(fieldName)
-			r.registerRecursionType(field.Type, structValidator.ruleMap[fieldName])
+			r.chainAndTraverseForStructs(field.Type, structValidator.ruleMap[fieldName])
 		}
-		valueValidatorRules = append(valueValidatorRules, structValidator)
+		selfRules = append(selfRules, structValidator)
 	}
-	v := mustNewValidator(func() (ValueAny, error) { return NewValueAny(typ, valueValidatorRules...) })
+	v := mustNewValidator(func() (ValueAny, error) { return NewValueAny(typ, selfRules...) })
 	return &v
 }
 
-func (r *Registry) registerRecursionType(typ reflect.Type, rules *[]Rule) {
+func (r *Registry) chainAndTraverseForStructs(typ reflect.Type, rules *[]Rule) {
 	// Registry handles indirect types only, user can't control the types here
 	typ = indirectType(typ)
 
@@ -67,16 +67,16 @@ func (r *Registry) registerRecursionType(typ reflect.Type, rules *[]Rule) {
 	case reflect.Struct:
 		validator := r.typeToValidator[typ]
 		if validator == nil {
-			// when type is registered, appends to the unregisteredTypeRef, similar to inside the else statement
+			// can't find validator now without registering first, so update rules then
 			r.unregisteredTypeRefs[typ] = append(r.unregisteredTypeRefs[typ], rules)
 		} else {
-			*rules = append(*rules, validator.Rules()...) // add existing type rules
+			*rules = append(*rules, validator.Rules()...) // add existing Field rules
 		}
 	case reflect.Slice, reflect.Array:
-		// No access to field type via generics
+		// validator represents the Slice rules applied to all elements
 		validator := mustNewValidator(func() (SliceAny, error) { return NewSliceAny(typ) })
 		*rules = append(*rules, &validator)
-		r.registerRecursionType(typ.Elem(), &validator.elementRules)
+		r.chainAndTraverseForStructs(typ.Elem(), &validator.elementRules)
 	}
 }
 

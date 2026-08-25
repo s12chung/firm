@@ -1,5 +1,5 @@
 lint:
 	golangci-lint run --fix $(TEST)
 
-test: lint
+test:
 	go test ./...
