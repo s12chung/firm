@@ -7,85 +7,90 @@ import (
 	"strconv"
 )
 
-// MustNewStruct returns a new Struct, panics if there is an error
-func MustNewStruct[T any](ruleMap RuleMap) Struct[T] {
-	return mustNewValidator(func() (Struct[T], error) { return NewStruct[T](ruleMap) })
+// Fields returns a new FieldsVldr, panics if there is an error
+func Fields[T any](ruleMap RuleMap) FieldsVldr[T] {
+	return mustNewValidator(func() (FieldsVldr[T], error) { return FieldsWithErr[T](ruleMap) })
 }
 
-// NewStruct returns a new Struct
-func NewStruct[T any](ruleMap RuleMap) (Struct[T], error) {
+// FieldsWithErr returns a new FieldsVldr
+func FieldsWithErr[T any](ruleMap RuleMap) (FieldsVldr[T], error) {
 	var zero T
-	structAny, err := NewStructAny(reflect.TypeOf(zero), ruleMap)
-	return Struct[T]{StructAny: structAny}, err
+	fieldsAnyV, err := FieldsAnyWithErr(reflect.TypeOf(zero), ruleMap)
+	return FieldsVldr[T]{FieldsAnyVldr: fieldsAnyV}, err
 }
 
-// NewStructAny returns a new StructAny
-func NewStructAny(typ reflect.Type, ruleMap RuleMap) (StructAny, error) {
+// FieldsAny returns a new FieldsAnyVldr, panics if there is an error
+func FieldsAny(typ reflect.Type, ruleMap RuleMap) FieldsAnyVldr {
+	return mustNewValidator(func() (FieldsAnyVldr, error) { return FieldsAnyWithErr(typ, ruleMap) })
+}
+
+// FieldsAnyWithErr returns a new FieldsAnyVldr
+func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) {
 	if typ == nil {
-		return StructAny{}, errors.New("type, nil, is not a Struct")
+		return FieldsAnyVldr{}, errors.New("Fields: type, nil, is not a Struct")
 	}
 	if typ.Kind() != reflect.Struct {
-		return StructAny{}, fmt.Errorf("type, %v, is not a Struct", typ.String())
+		return FieldsAnyVldr{}, fmt.Errorf("Fields: type, %v, is not a Struct", typ.String())
 	}
 
 	rm := map[string]*[]Rule{}
 	for fieldName, rules := range ruleMap {
 		field, found := typ.FieldByName(fieldName)
 		if !found {
-			return StructAny{}, fmt.Errorf("field, %v, not found in type: %v", fieldName, typ.String())
+			return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, not found in type: %v", fieldName, typ.String())
 		}
 		for _, rule := range rules {
 			if err := rule.TypeCheck(field.Type); err != nil {
-				return StructAny{}, fmt.Errorf("field, %v, in %v: %w", fieldName, typ.String(), err)
+				return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, in %v: %w", fieldName, typ.String(), err)
 			}
 		}
 		stamped := stampRegistryBackers(rules, field.Type)
 		rm[fieldName] = &stamped
 	}
-	return StructAny{typ: typ, ruleMap: rm}, nil
+	return FieldsAnyVldr{typ: typ, ruleMap: rm}, nil
 }
 
-// Struct validates structs
-type Struct[T any] struct{ StructAny }
+// FieldsVldr validates structs
+type FieldsVldr[T any] struct{ FieldsAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s Struct[T]) Validate(data T) ErrorMap { return validate(s, data) }
+func (s FieldsVldr[T]) Validate(data T) ErrorMap { return validate(s, data) }
 
-// StructAny is a Struct without generics
-type StructAny struct {
+// FieldsAnyVldr is a FieldsVldr without generics
+type FieldsAnyVldr struct {
 	typ     reflect.Type
 	ruleMap map[string]*[]Rule
 }
 
 // Type returns the Type the Validator handles
-func (s StructAny) Type() reflect.Type { return s.typ }
+func (s FieldsAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
-func (s StructAny) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
+func (s FieldsAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (s StructAny) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
+func (s FieldsAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
-func (s StructAny) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+func (s FieldsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	if value = safeValidateMergeValue(value); !value.IsValid() {
 		return
 	}
 	for fieldName, rules := range s.ruleMap {
 		//nolint:godox // want the comment
-		field, _ := value.Type().FieldByName(fieldName) // TODO: cache field indexes at NewStructAny to avoid per-validation lookups?
+		field, _ := value.Type().FieldByName(fieldName) // TODO: cache field indexes at FieldsAnyWithErr to avoid per-validation lookups?
 		// indirect to ensure passing a non-pointer down to a Rule
 		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, field.Name), errorMap, *rules)
 	}
 }
 
 // TypeCheck checks whether the type is valid for the Rule
-func (s StructAny) TypeCheck(typ reflect.Type) *RuleTypeError {
-	return TypeCheck("StructAny", typ, s.typ, "Struct")
+func (s FieldsAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
+	return TypeCheck("FieldsAnyVldr", typ, s.typ, "Struct")
 }
 
 // RuleMap returns the rules mapped to each field
-func (s StructAny) RuleMap() RuleMap {
+func (s FieldsAnyVldr) RuleMap() RuleMap {
 	ruleMap := RuleMap{}
 	for k, v := range s.ruleMap {
 		ruleMap[k] = *v
@@ -93,60 +98,65 @@ func (s StructAny) RuleMap() RuleMap {
 	return ruleMap
 }
 
-// MustNewSlice returns a new Slice, panics if there is an error
-func MustNewSlice[T []U, U any](elementRules ...Rule) Slice[T, U] {
-	return mustNewValidator(func() (Slice[T, U], error) { return NewSlice[T, U](elementRules...) })
+// Elems returns a new ElemsVldr, panics if there is an error
+func Elems[T []U, U any](elementRules ...Rule) ElemsVldr[T, U] {
+	return mustNewValidator(func() (ElemsVldr[T, U], error) { return ElemsWithErr[T, U](elementRules...) })
 }
 
-// NewSlice returns a new Slice
-func NewSlice[T []U, U any](elementRules ...Rule) (Slice[T, U], error) {
+// ElemsWithErr returns a new ElemsVldr
+func ElemsWithErr[T []U, U any](elementRules ...Rule) (ElemsVldr[T, U], error) {
 	var zero T
-	sliceAny, err := NewSliceAny(reflect.TypeOf(zero), elementRules...)
-	return Slice[T, U]{SliceAny: sliceAny}, err
+	elemsAnyV, err := ElemsAnyWithErr(reflect.TypeOf(zero), elementRules...)
+	return ElemsVldr[T, U]{ElemsAnyVldr: elemsAnyV}, err
 }
 
-// NewSliceAny returns the Slice validator without generics
-func NewSliceAny(typ reflect.Type, elementRules ...Rule) (SliceAny, error) {
+// ElemsAny returns a new ElemsAnyVldr, panics if there is an error
+func ElemsAny(typ reflect.Type, elementRules ...Rule) ElemsAnyVldr {
+	return mustNewValidator(func() (ElemsAnyVldr, error) { return ElemsAnyWithErr(typ, elementRules...) })
+}
+
+// ElemsAnyWithErr returns the ElemsVldr validator without generics
+func ElemsAnyWithErr(typ reflect.Type, elementRules ...Rule) (ElemsAnyVldr, error) {
 	if typ == nil {
-		return SliceAny{}, errors.New("type, nil, is not a Slice or Array")
+		return ElemsAnyVldr{}, errors.New("Elems: type, nil, is not a Slice or Array")
 	}
 	// Ptr Validator types not allowed, Validator types just take pointers
 	kind := indirectType(typ).Kind()
 	if kind != reflect.Slice && kind != reflect.Array {
-		return SliceAny{}, fmt.Errorf("type, %v, is not a Slice or Array", typ.String())
+		return ElemsAnyVldr{}, fmt.Errorf("Elems: type, %v, is not a Slice or Array", typ.String())
 	}
 
 	for _, rule := range elementRules {
 		if err := rule.TypeCheck(typ.Elem()); err != nil {
-			return SliceAny{}, fmt.Errorf("element type: %w", err)
+			return ElemsAnyVldr{}, fmt.Errorf("Elems: element type: %w", err)
 		}
 	}
-	return SliceAny{typ: typ, elementRules: stampRegistryBackers(elementRules, typ.Elem())}, nil
+	return ElemsAnyVldr{typ: typ, elementRules: stampRegistryBackers(elementRules, typ.Elem())}, nil
 }
 
-// Slice validates slices and arrays
-type Slice[T []U, U any] struct{ SliceAny }
+// ElemsVldr validates slices and arrays
+type ElemsVldr[T []U, U any] struct{ ElemsAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s Slice[T, U]) Validate(data T) ErrorMap { return validate(s, data) }
+func (s ElemsVldr[T, U]) Validate(data T) ErrorMap { return validate(s, data) }
 
-// SliceAny is a Slice without generics
-type SliceAny struct {
+// ElemsAnyVldr is an ElemsVldr without generics
+type ElemsAnyVldr struct {
 	typ          reflect.Type
 	elementRules []Rule
 }
 
 // Type returns the Type the Validator handles
-func (s SliceAny) Type() reflect.Type { return s.typ }
+func (s ElemsAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
-func (s SliceAny) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
+func (s ElemsAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (s SliceAny) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
+func (s ElemsAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
-func (s SliceAny) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+func (s ElemsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	if value = safeValidateMergeValue(value); !value.IsValid() {
 		return
 	}
@@ -157,88 +167,93 @@ func (s SliceAny) ValidateMerge(value reflect.Value, key string, errorMap ErrorM
 }
 
 // TypeCheck checks whether the type is valid for the Rule
-func (s SliceAny) TypeCheck(typ reflect.Type) *RuleTypeError {
-	return TypeCheck("SliceAny", typ, s.typ, "Slice or Array")
+func (s ElemsAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
+	return TypeCheck("ElemsAnyVldr", typ, s.typ, "Slice or Array")
 }
 
 // ElementRules returns the rules each element in the Slice or Array
-func (s SliceAny) ElementRules() []Rule { return s.elementRules }
+func (s ElemsAnyVldr) ElementRules() []Rule { return s.elementRules }
 
-// MustNewValue returns a Value, panics if there is an error
-func MustNewValue[T any](rules ...Rule) Value[T] {
-	return mustNewValidator(func() (Value[T], error) { return NewValue[T](rules...) })
+// Value returns a new ValueVldr, panics if there is an error
+func Value[T any](rules ...Rule) ValueVldr[T] {
+	return mustNewValidator(func() (ValueVldr[T], error) { return ValueWithErr[T](rules...) })
 }
 
-// NewValue returns a new Value
-func NewValue[T any](rules ...Rule) (Value[T], error) {
+// ValueWithErr returns a new ValueVldr
+func ValueWithErr[T any](rules ...Rule) (ValueVldr[T], error) {
 	var zero T
-	valueAny, err := NewValueAny(reflect.TypeOf(zero), rules...)
-	return Value[T]{ValueAny: valueAny}, err
+	valueAnyV, err := ValueAnyWithErr(reflect.TypeOf(zero), rules...)
+	return ValueVldr[T]{ValueAnyVldr: valueAnyV}, err
 }
 
-// NewValueAny returns a ValueAny
-func NewValueAny(typ reflect.Type, rules ...Rule) (ValueAny, error) {
+// ValueAny returns a new ValueAnyVldr, panics if there is an error
+func ValueAny(typ reflect.Type, rules ...Rule) ValueAnyVldr {
+	return mustNewValidator(func() (ValueAnyVldr, error) { return ValueAnyWithErr(typ, rules...) })
+}
+
+// ValueAnyWithErr returns a ValueAnyVldr
+func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 	if typ == nil {
-		return ValueAny{}, errors.New("type is nil, not recommended")
+		return ValueAnyVldr{}, errors.New("Value: type is nil, not recommended")
 	}
 	if typ.Kind() == reflect.Pointer {
-		return ValueAny{}, fmt.Errorf("type, %v, is a Pointer, not recommended", typ.String())
+		return ValueAnyVldr{}, fmt.Errorf("Value: type, %v, is a Pointer, not recommended", typ.String())
 	}
 
 	for _, rule := range rules {
 		if err := rule.TypeCheck(typ); err != nil {
-			return ValueAny{}, err
+			return ValueAnyVldr{}, err
 		}
 	}
-	return ValueAny{typ: typ, rules: rules}, nil
+	return ValueAnyVldr{typ: typ, rules: rules}, nil
 }
 
-// Value validates a simple value
-type Value[T any] struct{ ValueAny }
+// ValueVldr validates a simple value
+type ValueVldr[T any] struct{ ValueAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (v Value[T]) Validate(data T) ErrorMap { return validate(v, data) }
+func (v ValueVldr[T]) Validate(data T) ErrorMap { return validate(v, data) }
 
-// ValueAny is a Value without generics
-type ValueAny struct {
+// ValueAnyVldr is a ValueVldr without generics
+type ValueAnyVldr struct {
 	typ   reflect.Type
 	rules []Rule
 }
 
 // Type returns the Type the Validator handles
-func (v ValueAny) Type() reflect.Type { return v.typ }
+func (v ValueAnyVldr) Type() reflect.Type { return v.typ }
 
 // ValidateAny validates the data
-func (v ValueAny) ValidateAny(data any) ErrorMap { return validateAny(v, data) }
+func (v ValueAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(v, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (v ValueAny) ValidateValue(value reflect.Value) ErrorMap {
+func (v ValueAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
 	errorMap := ErrorMap{}
 	v.ValidateMerge(value, "", errorMap)
 	return errorMap.ToNil()
 }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
-func (v ValueAny) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+func (v ValueAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	validateMerge(value, key, errorMap, v.rules)
 }
 
 // TypeCheck checks whether the type is valid for the Rule
-func (v ValueAny) TypeCheck(typ reflect.Type) *RuleTypeError {
-	return TypeCheck("ValueAny", typ, v.typ, "")
+func (v ValueAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
+	return TypeCheck("ValueAnyVldr", typ, v.typ, "")
 }
 
-// Rules returns the rules for ValueAny
-func (v ValueAny) Rules() []Rule { return v.rules }
+// Rules returns the rules for ValueAnyVldr
+func (v ValueAnyVldr) Rules() []Rule { return v.rules }
 
-// RuleValidator is a Validator wrapper around Rule
-type RuleValidator struct{ Rule }
+// RuleVldr is a Validator wrapper around Rule
+type RuleVldr struct{ Rule }
 
 // ValidateAny validates the data
-func (r RuleValidator) ValidateAny(data any) ErrorMap { return validateAny(r, data) }
+func (r RuleVldr) ValidateAny(data any) ErrorMap { return validateAny(r, data) }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
-func (r RuleValidator) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+func (r RuleVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	validateMerge(value, key, errorMap, []Rule{r.Rule})
 }
 

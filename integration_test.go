@@ -72,17 +72,17 @@ func init() {
 		"Basic":     {presentRule{}, testRegistry.Backed()},
 		"Pt":        {presentRule{}, testRegistry.Backed()},
 		"Any":       {presentRule{}},
-		"Array":     {presentRule{}, MustNewSlice[[]Child](testRegistry.Backed())},
-		"ArrayPt":   {presentRule{}, MustNewSlice[[]*Child](testRegistry.Backed())},
-		"PtArray":   {presentRule{}, MustNewSlice[[]Child](testRegistry.Backed())},
+		"Array":     {presentRule{}, Elems[[]Child](testRegistry.Backed())},
+		"ArrayPt":   {presentRule{}, Elems[[]*Child](testRegistry.Backed())},
+		"PtArray":   {presentRule{}, Elems[[]Child](testRegistry.Backed())},
 
 		"PrimitiveEmptyValidates": {},
 		"BasicEmptyValidates":     {testRegistry.Backed()},
 		"PtEmptyValidates":        {testRegistry.Backed()},
 		"AnyEmptyValidates":       {},
-		"ArrayValidates":          {MustNewSlice[[]Child](testRegistry.Backed())},
-		"ArrayPtValidates":        {MustNewSlice[[]*Child](testRegistry.Backed())},
-		"PtArrayValidates":        {MustNewSlice[[]Child](testRegistry.Backed())},
+		"ArrayValidates":          {Elems[[]Child](testRegistry.Backed())},
+		"ArrayPtValidates":        {Elems[[]*Child](testRegistry.Backed())},
+		"PtArrayValidates":        {Elems[[]Child](testRegistry.Backed())},
 	}))
 	testRegistry.MustRegisterType(NewDefinition[Child]().Validates(RuleMap{
 		"Validates": {presentRule{}},

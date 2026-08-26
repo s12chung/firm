@@ -21,7 +21,7 @@ var (
 )
 
 // DefaultValidator is the validator used by registries for not found types when DefaultValidator is not defined
-var DefaultValidator = RuleValidator{Rule: NotFoundRule{}}
+var DefaultValidator = RuleVldr{Rule: NotFoundRule{}}
 
 // NotFoundRule is the rule used for not found types in the DefaultValidator
 type NotFoundRule struct{}

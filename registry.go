@@ -11,7 +11,7 @@ import (
 // e.g. in init(). Once registration completes, ValidateAny/ValidateValue/TypeCheck
 // are safe for concurrent use.
 type Registry struct {
-	typeToValidator  map[reflect.Type]*ValueAny
+	typeToValidator  map[reflect.Type]*ValueAnyVldr
 	DefaultValidator Validator
 }
 
@@ -25,7 +25,7 @@ func (r *Registry) MustRegisterType(definition *Definition) {
 // RegisterType registers the Definition to validate the type
 func (r *Registry) RegisterType(definition *Definition) error {
 	if r.typeToValidator == nil {
-		r.typeToValidator = map[reflect.Type]*ValueAny{}
+		r.typeToValidator = map[reflect.Type]*ValueAnyVldr{}
 	}
 
 	typ := definition.typ
@@ -37,13 +37,13 @@ func (r *Registry) RegisterType(definition *Definition) error {
 	return nil
 }
 
-func (r *Registry) toValidator(definition *Definition) *ValueAny {
+func (r *Registry) toValidator(definition *Definition) *ValueAnyVldr {
 	typ := definition.Type()
 	selfRules := definition.SelfRules()
 	if len(definition.RuleMap()) > 0 {
-		selfRules = append(selfRules, mustNewValidator(func() (StructAny, error) { return NewStructAny(definition.typ, definition.RuleMap()) }))
+		selfRules = append(selfRules, mustNewValidator(func() (FieldsAnyVldr, error) { return FieldsAnyWithErr(definition.typ, definition.RuleMap()) }))
 	}
-	v := mustNewValidator(func() (ValueAny, error) { return NewValueAny(typ, selfRules...) })
+	v := mustNewValidator(func() (ValueAnyVldr, error) { return ValueAnyWithErr(typ, selfRules...) })
 	return &v
 }
 
@@ -110,7 +110,7 @@ func (r *Registry) Backed() RegistryBacker { return RegistryBacker{Registry: r} 
 
 // RegistryBacker safely validates against a Registry.
 // typ allows handling `nil` values, as the reflect.Type can't be inferred.
-// typ is set via stampRegistryBackers() through NewStructAny().
+// typ is set via stampRegistryBackers() through FieldsAnyWithErr().
 // Intended to be used with Registry.Backed() for easy reading.
 type RegistryBacker struct {
 	Registry *Registry

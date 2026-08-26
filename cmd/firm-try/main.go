@@ -30,26 +30,25 @@ func init() {
 	firm.MustRegisterType(
 		// For the `Config` struct
 		firm.NewDefinition[Config]().
-			// On the `Config` struct "itself", NOT the `Config`'s `StructField`s,
+			// On the `Config` struct "itself", NOT the `Config`'s fields,
 			// validate whether the struct is present (a non-empty value)
 			//
 			// Can be used to register non-Structs (not recommended though)
 			ValidatesSelf(rule.Present{}).
-			// `StructField`s are represented by a `firm.RuleMap`.
+			// Fields are represented by a `firm.RuleMap`.
 			//
-			// For the `Queries` `StructField` as a slice,
-			// recurse into each element's registered `Query` definition below:
-			// `firm.MustNewSlice()` steps down to each element,
-			// then `firm.Backed()` validates it with the registered definition
+			// For the `Config.Queries` slice field (implied `[]firm.Rule{}`),
+			// for each element (`firm.Elems()`),
+			// validate using the `Query` definition backed by `firm,DefaultRegistry` `(`firm.Backed()`)
 			Validates(firm.RuleMap{
-				"Queries": {firm.MustNewSlice[[]Query](firm.Backed())},
+				"Queries": {firm.Elems[[]Query](firm.Backed())},
 			}),
 	)
 	firm.MustRegisterType(
 		// For the `Query` struct
 		firm.NewDefinition[Query]().
-			// For the `Str` `StructField` as a string,
-			// validate whether the string is present (a non-empty value)
+			// For the `Str` string field (implied `[]firm.Rule{}`),
+			// validate whether the string is present--a non-empty value (`rule.Present{}`)
 			Validates(firm.RuleMap{
 				"Str": {rule.Present{}},
 			}))

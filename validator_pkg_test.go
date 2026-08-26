@@ -31,7 +31,7 @@ func errorMap(field, name firm.ErrorKey, template string) firm.ErrorMap {
 	return firm.ErrorMap{key: firm.TemplateError{Template: template, ErrorKey: key}}
 }
 
-func TestNewStructPkg(t *testing.T) {
+func TestFieldsWithErrPkg(t *testing.T) {
 	tcs := []struct {
 		name    string
 		ruleMap firm.RuleMap
@@ -48,7 +48,7 @@ func TestNewStructPkg(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			require := require.New(t)
 
-			validator, err := firm.NewStruct[nonExport](tc.ruleMap)
+			validator, err := firm.FieldsWithErr[nonExport](tc.ruleMap)
 			require.NoError(err)
 			require.Nil(validator.ValidateAny(notEmpty))
 			require.Equal(tc.failErr, validator.ValidateAny(nonExport{}))
