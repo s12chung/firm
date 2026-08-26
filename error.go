@@ -170,7 +170,7 @@ func (r RuleTypeError) Error() string { return r.RuleName + ": " + r.TemplateErr
 
 // TypeCheck is a basic implementation for TypeCheck
 func TypeCheck(ruleName string, typ, expectedType reflect.Type, kindString string) *RuleTypeError {
-	// Pointer Validator types not allowed, Validator types just take pointers
+	// Validator types are stored indirected, so indirect the incoming type--data may be a pointer
 	typ = indirectType(typ)
 	if typ != expectedType {
 		if kindString != "" {

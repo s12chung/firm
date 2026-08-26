@@ -1,6 +1,7 @@
 package firm
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,8 +11,9 @@ func TestNewDefinition(t *testing.T) {
 	require := require.New(t)
 
 	require.NotPanics(func() { NewDefinition[Child]() })
-	require.NotPanics(func() { NewDefinition[int]() }) // non-struct
-	require.Panics(func() { NewDefinition[*Child]() }) // pointer
+	require.NotPanics(func() { NewDefinition[int]() })    // non-struct
+	require.NotPanics(func() { NewDefinition[*Child]() }) // pointer, indirected
+	require.Equal(reflect.TypeFor[Child](), NewDefinition[**Child]().Type())
 }
 
 func TestDefinition_ValidatesSelf(t *testing.T) {

@@ -342,7 +342,7 @@ firm.NewDefinition[Config]().
 	})
 ```
 
-`ElemsWithErr()`/`Elems()` define the type via generics. Validators have value types--`[]Query`, not `*[]Query`. Since all rules expect values, this is ok.
+`ElemsWithErr()`/`Elems()` define the type via generics. All rules expect values, so pointer types are indirected, so `ElemsAny(*[]Query)` works on `[]Query`.
 
 For arrays, the generic constraint is too narrow (`T []U` is slices-only)--use `ElemsAny()`/`ElemsAnyWithErr()`, which handle arrays too, but force you to define the type via `reflect`.
 

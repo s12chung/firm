@@ -24,11 +24,12 @@ func FieldsAny(typ reflect.Type, ruleMap RuleMap) FieldsAnyVldr {
 	return mustNewValidator(func() (FieldsAnyVldr, error) { return FieldsAnyWithErr(typ, ruleMap) })
 }
 
-// FieldsAnyWithErr returns a new FieldsAnyVldr
+// FieldsAnyWithErr returns a new FieldsAnyVldr. Pointer types are indirected to their value type
 func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) {
 	if typ == nil {
 		return FieldsAnyVldr{}, errors.New("Fields: type, nil, is not a Struct")
 	}
+	typ = indirectType(typ)
 	if typ.Kind() != reflect.Struct {
 		return FieldsAnyVldr{}, fmt.Errorf("Fields: type, %v, is not a Struct", typ.String())
 	}
@@ -40,7 +41,7 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 			return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, not found in type: %v", fieldName, typ.String())
 		}
 		for _, rule := range rules {
-			if err := rule.TypeCheck(field.Type); err != nil {
+			if err := rule.TypeCheck(indirectType(field.Type)); err != nil {
 				return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, in %v: %w", fieldName, typ.String(), err)
 			}
 		}
@@ -115,19 +116,18 @@ func ElemsAny(typ reflect.Type, elementRules ...Rule) ElemsAnyVldr {
 	return mustNewValidator(func() (ElemsAnyVldr, error) { return ElemsAnyWithErr(typ, elementRules...) })
 }
 
-// ElemsAnyWithErr returns the ElemsVldr validator without generics
+// ElemsAnyWithErr returns the ElemsVldr validator without generics. Pointer types are indirected to their value type
 func ElemsAnyWithErr(typ reflect.Type, elementRules ...Rule) (ElemsAnyVldr, error) {
 	if typ == nil {
 		return ElemsAnyVldr{}, errors.New("Elems: type, nil, is not a Slice or Array")
 	}
-	// Ptr Validator types not allowed, Validator types just take pointers
-	kind := indirectType(typ).Kind()
-	if kind != reflect.Slice && kind != reflect.Array {
+	typ = indirectType(typ)
+	if typ.Kind() != reflect.Slice && typ.Kind() != reflect.Array {
 		return ElemsAnyVldr{}, fmt.Errorf("Elems: type, %v, is not a Slice or Array", typ.String())
 	}
 
 	for _, rule := range elementRules {
-		if err := rule.TypeCheck(typ.Elem()); err != nil {
+		if err := rule.TypeCheck(indirectType(typ.Elem())); err != nil {
 			return ElemsAnyVldr{}, fmt.Errorf("Elems: element type: %w", err)
 		}
 	}
@@ -191,14 +191,12 @@ func ValueAny(typ reflect.Type, rules ...Rule) ValueAnyVldr {
 	return mustNewValidator(func() (ValueAnyVldr, error) { return ValueAnyWithErr(typ, rules...) })
 }
 
-// ValueAnyWithErr returns a ValueAnyVldr
+// ValueAnyWithErr returns a ValueAnyVldr. Pointer types are indirected to their value type
 func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 	if typ == nil {
 		return ValueAnyVldr{}, errors.New("Value: type is nil, not recommended")
 	}
-	if typ.Kind() == reflect.Pointer {
-		return ValueAnyVldr{}, fmt.Errorf("Value: type, %v, is a Pointer, not recommended", typ.String())
-	}
+	typ = indirectType(typ)
 
 	for _, rule := range rules {
 		if err := rule.TypeCheck(typ); err != nil {

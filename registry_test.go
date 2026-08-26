@@ -244,24 +244,24 @@ func TestMultiPtr_ValidateAll(t *testing.T) {
 		{name: "Parent___valid", data: multiPtrParent{Ptr: &ppGood, Ptrs: &[]**Child{ppGood}}},
 		{name: "Parent___empty", data: multiPtrParent{},
 			err: presentRuleError(""), keySuffixes: []string{
-			joinKeys("Ptr", presentRuleKey),
-			joinKeys("Ptrs", presentRuleKey),
-		}},
+				joinKeys("Ptr", presentRuleKey),
+				joinKeys("Ptrs", presentRuleKey),
+			}},
 		{name: "Parent___Ptr_empty", data: multiPtrParent{Ptr: &ppEmpty, Ptrs: &[]**Child{ppGood}},
 			err: presentRuleError(""), keySuffixes: []string{
-			joinKeys("Ptr", presentRuleKey),
-			joinKeys("Ptr.Validates", presentRuleKey),
-		}},
+				joinKeys("Ptr", presentRuleKey),
+				joinKeys("Ptr.Validates", presentRuleKey),
+			}},
 		{name: "Parent__Ptr_nil", data: multiPtrParent{Ptr: ppNil, Ptrs: &[]**Child{ppGood}},
 			err: presentRuleError(""), keySuffixes: []string{
-			joinKeys("Ptr", presentRuleKey),
-		}},
+				joinKeys("Ptr", presentRuleKey),
+			}},
 		{name: "Parent___Ptrs_mixed", data: multiPtrParent{Ptr: &ppGood, Ptrs: &[]**Child{nil, ppEmpty}},
 			// nil elements are indirected into invalid values and silently skipped by the RegistryBacker,
 			// so only the empty child surfaces errors
 			err: presentRuleError(""), keySuffixes: []string{
-			joinKeys("Ptrs.[1].Validates", presentRuleKey),
-		}},
+				joinKeys("Ptrs.[1].Validates", presentRuleKey),
+			}},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {

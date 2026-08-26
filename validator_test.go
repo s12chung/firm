@@ -507,12 +507,15 @@ func TestFieldsAny(t *testing.T) {
 	expected, err := FieldsAnyWithErr(typ, ruleMap)
 	require.NoError(t, err)
 	require.Equal(t, expected, FieldsAny(typ, ruleMap))
+	require.Equal(t, expected, FieldsAny(reflect.TypeFor[*Child](), ruleMap))
 
 	require.Panics(t, func() { FieldsAny(reflect.TypeFor[int](), ruleMap) })
 }
 
 func TestFieldsAnyWithErr(t *testing.T) {
 	noMatchingRule := onlyKindRule{kind: reflect.Bool}
+	childPt := &Child{}
+	doubleChildPt := &childPt
 
 	tcs := []struct {
 		name    string
@@ -521,13 +524,15 @@ func TestFieldsAnyWithErr(t *testing.T) {
 		err     error
 	}{
 		{name: "normal", data: Child{}, ruleMap: RuleMap{"Validates": {presentRule{}}}},
+		{name: "pointer", data: &Child{}, ruleMap: RuleMap{"Validates": {presentRule{}}}},
+		{name: "double_pointer", data: doubleChildPt, ruleMap: RuleMap{"Validates": {presentRule{}}}},
 		{name: "non_exported_field", data: Child{}, ruleMap: RuleMap{"private": {presentRule{}}}},
 		{name: "nil_type", data: nil, err: errors.New("Fields: type, nil, is not a Struct")},
-		{name: "pointer", data: &Child{}, err: errors.New("Fields: type, *firm.Child, is not a Struct")},
 		{name: "non_matching_field", data: Child{}, ruleMap: RuleMap{"No": {presentRule{}}},
 			err: errors.New("Fields: field, No, not found in type: firm.Child")},
 		{name: "no_matching_rule", data: Child{}, ruleMap: RuleMap{"Validates": {noMatchingRule}},
 			err: fmt.Errorf("Fields: field, Validates, in firm.Child: %w", noMatchingRule.TypeCheck(reflect.TypeFor[string]()))},
+		{name: "ptr_field_indirects_to_rule", data: parent{}, ruleMap: RuleMap{"Pt": {onlyKindRule{kind: reflect.Struct}}}},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -540,7 +545,7 @@ func TestFieldsAnyWithErr(t *testing.T) {
 			}
 
 			require.NoError(err)
-			require.Equal(reflect.TypeOf(tc.data), validator.typ)
+			require.Equal(indirectType(reflect.TypeOf(tc.data)), validator.typ)
 			require.Len(validator.ruleMap, len(tc.ruleMap))
 			for k, v := range tc.ruleMap {
 				require.Equal(v, *validator.ruleMap[k])
@@ -558,6 +563,19 @@ func TestFieldsVldr_Validate(t *testing.T) {
 	}
 	testValidate(t, tcs, func() (ValidatorTyped[Child], error) {
 		return FieldsWithErr[Child](RuleMap{"Validates": []Rule{presentRule{}}})
+	})
+}
+
+func TestFieldsVldr_Validate_PtrType(t *testing.T) {
+	errorKey := ErrorKey("firm.Child.Validates." + presentRuleKey)
+	child := Child{Validates: "ok"}
+
+	tcs := []validateTC[*Child]{
+		{name: "valid", data: &child},
+		{name: "invalid", data: &Child{}, result: ErrorMap{errorKey: *presentRuleError(errorKey)}},
+	}
+	testValidate(t, tcs, func() (ValidatorTyped[*Child], error) {
+		return FieldsWithErr[*Child](RuleMap{"Validates": []Rule{presentRule{}}})
 	})
 }
 
@@ -663,6 +681,23 @@ var sliceValidatorTestCases = []sliceValidatorTestCase{
 		errorKeys: []string{"[1]", "[2]", "[2].Int"}, f: func() any {
 			return []*sliceValidatorElement{{Int: 1}, nil, {}}
 		}},
+
+	//
+	// Pointer slice, double-pointer elements
+	//
+	{name: "Double_Ptr_Element_valid", validator: ptrPtElemsValidator, errorKeys: nil, f: func() any {
+		return &[]**sliceValidatorElement{toElemPtrPtr(sliceValidatorElement{Int: 1})}
+	}},
+	{name: "Double_Ptr_Element_nil_mixed", validator: ptrPtElemsValidator,
+		errorKeys: []string{"[1]", "[2]", "[2].Int"}, f: func() any {
+			return &[]**sliceValidatorElement{toElemPtrPtr(sliceValidatorElement{Int: 1}), nil, toElemPtrPtr(sliceValidatorElement{})}
+		}},
+}
+
+// toElemPtrPtr wraps the element into **sliceValidatorElement--composite literals can't be **T
+func toElemPtrPtr(elem sliceValidatorElement) **sliceValidatorElement {
+	elemPt := &elem
+	return &elemPt
 }
 
 var elemsValidator = Elems[[]sliceValidatorElement](
@@ -671,17 +706,26 @@ var elemsValidator = Elems[[]sliceValidatorElement](
 var ptrElemsValidator = Elems[[]*sliceValidatorElement](
 	presentRule{}, Fields[sliceValidatorElement](RuleMap{"Int": {presentRule{}}}))
 
+var ptrPtElemsValidator = ElemsAny(
+	reflect.TypeFor[*[]**sliceValidatorElement](),
+	presentRule{}, Fields[sliceValidatorElement](RuleMap{"Int": {presentRule{}}}))
+
 func TestElemsAny(t *testing.T) {
 	typ := reflect.TypeFor[[]Child]()
 	expected, err := ElemsAnyWithErr(typ, presentRule{})
 	require.NoError(t, err)
 	require.Equal(t, expected, ElemsAny(typ, presentRule{}))
+	require.Equal(t, expected, ElemsAny(reflect.TypeFor[*[]Child](), presentRule{}))
 
 	require.Panics(t, func() { ElemsAny(reflect.TypeFor[Child](), presentRule{}) })
 }
 
 func TestElemsAnyWithErr(t *testing.T) {
 	noMatchingRule := onlyKindRule{kind: reflect.Bool}
+	slicePt := &[]Child{}
+	doubleSlicePt := &slicePt
+	ptrSlicePtrElems := &[]**Child{}
+	doublePtrSlicePtrElems := &ptrSlicePtrElems
 
 	tcs := []struct {
 		name  string
@@ -690,9 +734,17 @@ func TestElemsAnyWithErr(t *testing.T) {
 		err   error
 	}{
 		{name: "normal", data: []Child{}, rules: []Rule{presentRule{}}},
-		{name: "slice_pointer", data: &[]Child{}},
+		{name: "slice_pointer", data: &[]Child{}, rules: []Rule{presentRule{}}},
+		{name: "double_pointer", data: doubleSlicePt, rules: []Rule{presentRule{}}},
+		// element type, *Child, is indirected before the rule's TypeCheck
+		{name: "ptr_element_indirects_to_rule", data: []*Child{}, rules: []Rule{onlyKindRule{kind: reflect.Struct}}},
+		{name: "ptr_slice_ptr_elements", data: &[]*Child{}, rules: []Rule{onlyKindRule{kind: reflect.Struct}}},
+		{name: "double_ptr_slice_double_ptr_elements", data: doublePtrSlicePtrElems, rules: []Rule{onlyKindRule{kind: reflect.Struct}}},
+		{name: "ptr_array_ptr_elements", data: &[2]*Child{}, rules: []Rule{onlyKindRule{kind: reflect.Struct}}},
+		{name: "slice_pointer_with_onlyKindRule", data: &[]Child{}, rules: []Rule{onlyKindRule{kind: reflect.Struct}}},
 		{name: "nil_type", data: nil, err: errors.New("Elems: type, nil, is not a Slice or Array")},
 		{name: "not_slice", data: Child{}, err: errors.New("Elems: type, firm.Child, is not a Slice or Array")},
+		{name: "pointer_to_not_slice", data: &Child{}, err: errors.New("Elems: type, firm.Child, is not a Slice or Array")},
 		{name: "no_matching_rule", data: []Child{}, rules: []Rule{noMatchingRule},
 			err: fmt.Errorf("Elems: element type: %w", noMatchingRule.TypeCheck(reflect.TypeFor[Child]()))},
 	}
@@ -707,7 +759,8 @@ func TestElemsAnyWithErr(t *testing.T) {
 			}
 
 			require.NoError(err)
-			require.Equal(ElemsAnyVldr{typ: reflect.TypeOf(tc.data), elementRules: tc.rules}, validator)
+			require.Equal(indirectType(reflect.TypeOf(tc.data)), validator.typ)
+			require.Equal(tc.rules, validator.elementRules)
 		})
 	}
 }
@@ -788,12 +841,15 @@ func TestValueAny(t *testing.T) {
 	expected, err := ValueAnyWithErr(typ, presentRule{})
 	require.NoError(t, err)
 	require.Equal(t, expected, ValueAny(typ, presentRule{}))
+	require.Equal(t, expected, ValueAny(reflect.TypeFor[*int](), presentRule{}))
 
-	require.Panics(t, func() { ValueAny(reflect.TypeFor[*int](), presentRule{}) })
+	require.Panics(t, func() { ValueAny(reflect.TypeFor[[]int](), onlyKindRule{kind: reflect.Int}) })
 }
 
 func TestValueAnyWithErr(t *testing.T) {
 	i := 0
+	intPt := &i
+	doubleIntPt := &intPt
 	intRule := onlyKindRule{kind: reflect.Int}
 
 	tcs := []struct {
@@ -803,7 +859,8 @@ func TestValueAnyWithErr(t *testing.T) {
 		err   error
 	}{
 		{name: "normal", data: i, rules: []Rule{intRule}},
-		{name: "int_pointer", data: &i, err: errors.New("Value: type, *int, is a Pointer, not recommended")},
+		{name: "int_pointer", data: intPt, rules: []Rule{intRule}},
+		{name: "int_double_pointer", data: doubleIntPt, rules: []Rule{intRule}},
 		{name: "nil_type", data: nil, err: errors.New("Value: type is nil, not recommended")},
 		{name: "not_int", data: []int{}, rules: []Rule{intRule}, err: intRule.TypeCheck(reflect.TypeFor[[]int]())},
 	}
@@ -818,7 +875,8 @@ func TestValueAnyWithErr(t *testing.T) {
 			}
 
 			require.NoError(err)
-			require.Equal(ValueAnyVldr{typ: reflect.TypeOf(tc.data), rules: tc.rules}, validator)
+			require.Equal(indirectType(reflect.TypeOf(tc.data)), validator.typ)
+			require.Equal(tc.rules, validator.rules)
 		})
 	}
 }
@@ -831,6 +889,19 @@ func TestValueVldr_Validate(t *testing.T) {
 	}
 	testValidate(t, tcs, func() (ValidatorTyped[Child], error) {
 		return ValueWithErr[Child](presentRule{})
+	})
+}
+
+func TestValueVldr_Validate_PtrType(t *testing.T) {
+	errorKey := ErrorKey("int." + presentRuleKey)
+	i, zero := 1, 0
+
+	tcs := []validateTC[*int]{
+		{name: "valid", data: &i},
+		{name: "invalid", data: &zero, result: ErrorMap{errorKey: *presentRuleError(errorKey)}},
+	}
+	testValidate(t, tcs, func() (ValidatorTyped[*int], error) {
+		return ValueWithErr[*int](presentRule{})
 	})
 }
 

@@ -5,13 +5,10 @@ import (
 	"reflect"
 )
 
-// NewDefinition returns a new Definition
+// NewDefinition returns a new Definition. Pointer types are indirected to their value type
 func NewDefinition[T any]() *Definition {
 	var zero T
-	typ := reflect.TypeOf(zero)
-	if typ.Kind() == reflect.Pointer {
-		panic(fmt.Sprintf("NewDefinition created with pointer type, dereference it: %v", typ.String()))
-	}
+	typ := indirectType(reflect.TypeOf(zero))
 	validator := &Definition{
 		typ:       typ,
 		selfRules: []Rule{},
