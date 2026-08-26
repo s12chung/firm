@@ -28,6 +28,7 @@ func NewStructAny(typ reflect.Type, ruleMap RuleMap) (StructAny, error) {
 		return StructAny{}, fmt.Errorf("type, %v, is not a Struct", typ.String())
 	}
 
+	rm := map[string]*[]Rule{}
 	for fieldName, rules := range ruleMap {
 		field, found := typ.FieldByName(fieldName)
 		if !found {
@@ -38,11 +39,8 @@ func NewStructAny(typ reflect.Type, ruleMap RuleMap) (StructAny, error) {
 				return StructAny{}, fmt.Errorf("field, %v, in %v: %w", fieldName, typ.String(), err)
 			}
 		}
-	}
-
-	rm := map[string]*[]Rule{}
-	for k, rules := range ruleMap {
-		rm[k] = &rules
+		stamped := stampRegistryBackers(rules, field.Type)
+		rm[fieldName] = &stamped
 	}
 	return StructAny{typ: typ, ruleMap: rm}, nil
 }
@@ -70,13 +68,13 @@ func (s StructAny) ValidateValue(value reflect.Value) ErrorMap { return validate
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s StructAny) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
-	if !value.IsValid() {
+	if value = safeValidateMergeValue(value); !value.IsValid() {
 		return
 	}
 	for fieldName, rules := range s.ruleMap {
 		//nolint:godox // want the comment
 		field, _ := value.Type().FieldByName(fieldName) // TODO: cache field indexes at NewStructAny to avoid per-validation lookups?
-		// no control over types, so indirect, checks v.IsValid() downstream at Rule.ValidateValue() implementation
+		// indirect to ensure passing a non-pointer down to a Rule
 		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, field.Name), errorMap, *rules)
 	}
 }
@@ -112,7 +110,8 @@ func NewSliceAny(typ reflect.Type, elementRules ...Rule) (SliceAny, error) {
 	if typ == nil {
 		return SliceAny{}, errors.New("type, nil, is not a Slice or Array")
 	}
-	kind := typ.Kind()
+	// Ptr Validator types not allowed, Validator types just take pointers
+	kind := indirectType(typ).Kind()
 	if kind != reflect.Slice && kind != reflect.Array {
 		return SliceAny{}, fmt.Errorf("type, %v, is not a Slice or Array", typ.String())
 	}
@@ -122,7 +121,7 @@ func NewSliceAny(typ reflect.Type, elementRules ...Rule) (SliceAny, error) {
 			return SliceAny{}, fmt.Errorf("element type: %w", err)
 		}
 	}
-	return SliceAny{typ: typ, elementRules: elementRules}, nil
+	return SliceAny{typ: typ, elementRules: stampRegistryBackers(elementRules, typ.Elem())}, nil
 }
 
 // Slice validates slices and arrays
@@ -148,13 +147,12 @@ func (s SliceAny) ValidateValue(value reflect.Value) ErrorMap { return validateV
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s SliceAny) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
-	if !value.IsValid() {
+	if value = safeValidateMergeValue(value); !value.IsValid() {
 		return
 	}
 	for i := range value.Len() {
-		// no control over types, so indirect, checks v.IsValid() downstream at Rule.ValidateValue() implementation
-		v := indirect(value.Index(i))
-		validateMerge(v, joinKeys(key, "["+strconv.Itoa(i)+"]"), errorMap, s.elementRules)
+		// indirect to ensure passing a non-pointer down to a Rule
+		validateMerge(indirect(value.Index(i)), joinKeys(key, "["+strconv.Itoa(i)+"]"), errorMap, s.elementRules)
 	}
 }
 
@@ -284,6 +282,15 @@ func validateValue(validator Validator, value reflect.Value) ErrorMap {
 	return errorMap.ToNil()
 }
 
+func safeValidateMergeValue(value reflect.Value) reflect.Value {
+	if !value.IsValid() {
+		return reflect.Value{}
+	}
+	if value.Kind() == reflect.Pointer && value.IsNil() {
+		return reflect.Value{}
+	}
+	return indirect(value)
+}
 func validateMerge(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
 	for _, rule := range rules {
 		rule.ValidateValue(value).MergeInto(key, errorMap)
@@ -299,4 +306,20 @@ func validate(validator Validator, data any) ErrorMap {
 	errorMap := ErrorMap{}
 	validator.ValidateMerge(value, value.Type().String(), errorMap)
 	return errorMap.Finish()
+}
+
+// stampRegistryBackers returns rules with each RegistryBacker set to typ
+func stampRegistryBackers(rules []Rule, typ reflect.Type) []Rule {
+	if len(rules) == 0 {
+		return rules
+	}
+	stamped := make([]Rule, len(rules))
+	for i, rule := range rules {
+		if backer, ok := rule.(RegistryBacker); ok {
+			backer.typ = indirectType(typ)
+			rule = backer
+		}
+		stamped[i] = rule
+	}
+	return stamped
 }

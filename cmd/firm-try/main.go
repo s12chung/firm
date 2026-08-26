@@ -38,8 +38,12 @@ func init() {
 			// `StructField`s are represented by a `firm.RuleMap`.
 			//
 			// For the `Queries` `StructField` as a slice,
-			// recurse into each element's registered `Query` definition below
-			Validates(firm.RuleMap{"Queries": {}}),
+			// recurse into each element's registered `Query` definition below:
+			// `firm.MustNewSlice()` steps down to each element,
+			// then `firm.Backed()` validates it with the registered definition
+			Validates(firm.RuleMap{
+				"Queries": {firm.MustNewSlice[[]Query](firm.Backed())},
+			}),
 	)
 	firm.MustRegisterType(
 		// For the `Query` struct

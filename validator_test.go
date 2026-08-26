@@ -322,6 +322,14 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.ArrayPtValidates = nil
 		return changeParent
 	}},
+	{name: "ArrayPtValidates___nil_element", errorKeys: []string{"ArrayPtValidates.[0].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		// the empty child surfaces errors, while
+		// the nil element is silently skipped because SelfValidates is not called
+		// and the ArrayPtValidates doesn't have any validations either
+		changeParent.ArrayPtValidates = []*Child{{}, nil}
+		return changeParent
+	}},
 
 	//
 	// PtArrayValidates
@@ -581,7 +589,7 @@ func TestStructAny_TypeCheck(t *testing.T) {
 		badCondition string
 	}{
 		{name: "matching struct", data: parent{}},
-		{name: "matching struct pointer", data: &parent{}, badCondition: badCondition},
+		{name: "matching struct pointer", data: &parent{}},
 		{name: "other struct", data: Child{}, badCondition: badCondition},
 		{name: "not struct", data: 1, badCondition: badCondition},
 	}
@@ -601,33 +609,54 @@ type sliceValidatorElement struct {
 }
 
 type sliceValidatorTestCase struct {
-	name      string
-	f         func() []sliceValidatorElement
+	name string
+	f    func() any
+	// defaults to sliceValidator
+	validator Validator
 	errorKeys []string
 }
 
 var sliceValidatorTestCases = []sliceValidatorTestCase{
-	{name: "Full", errorKeys: nil, f: func() []sliceValidatorElement {
+	{name: "Full", errorKeys: nil, f: func() any {
 		return []sliceValidatorElement{{1, 1}, {2, 2}, {3, 3}}
 	}},
-	{name: "Empty", errorKeys: nil, f: func() []sliceValidatorElement {
+	{name: "Empty", errorKeys: nil, f: func() any {
 		return []sliceValidatorElement{}
 	}},
-	{name: "Nil", errorKeys: nil, f: func() []sliceValidatorElement {
-		return nil
+	{name: "Nil", errorKeys: nil, f: func() any {
+		return []sliceValidatorElement(nil)
 	}},
-	{name: "Element_Not_Full", errorKeys: nil, f: func() []sliceValidatorElement {
+	{name: "Element_Not_Full", errorKeys: nil, f: func() any {
 		return []sliceValidatorElement{{Int: 1}, {Int: 2}}
 	}},
-	{name: "Element_Invalid", errorKeys: []string{"[0].Int", "[1].Int"}, f: func() []sliceValidatorElement {
+	{name: "Element_Invalid", errorKeys: []string{"[0].Int", "[1].Int"}, f: func() any {
 		return []sliceValidatorElement{{UInt: 1}, {UInt: 2}}
 	}},
-	{name: "Element_Empty", errorKeys: []string{"[0]", "[1]", "[0].Int", "[1].Int"}, f: func() []sliceValidatorElement {
+	{name: "Element_Empty", errorKeys: []string{"[0]", "[1]", "[0].Int", "[1].Int"}, f: func() any {
 		return []sliceValidatorElement{{}, {}}
 	}},
+
+	//
+	// Pointer elements
+	//
+	{name: "Ptr_Element_valid", validator: ptrSliceValidator, errorKeys: nil, f: func() any {
+		return []*sliceValidatorElement{{Int: 1}, {Int: 2}}
+	}},
+	{name: "Ptr_Element_nil", validator: ptrSliceValidator,
+		// presentRule flags the invalid value, while the StructAny validator silently skips it
+		errorKeys: []string{"[0]"}, f: func() any {
+			return []*sliceValidatorElement{nil}
+		}},
+	{name: "Ptr_Element_nil_mixed", validator: ptrSliceValidator,
+		errorKeys: []string{"[1]", "[2]", "[2].Int"}, f: func() any {
+			return []*sliceValidatorElement{{Int: 1}, nil, {}}
+		}},
 }
 
 var sliceValidator = MustNewSlice[[]sliceValidatorElement](
+	presentRule{}, MustNewStruct[sliceValidatorElement](RuleMap{"Int": {presentRule{}}}))
+
+var ptrSliceValidator = MustNewSlice[[]*sliceValidatorElement](
 	presentRule{}, MustNewStruct[sliceValidatorElement](RuleMap{"Int": {presentRule{}}}))
 
 func TestNewSliceAny(t *testing.T) {
@@ -640,8 +669,8 @@ func TestNewSliceAny(t *testing.T) {
 		err   error
 	}{
 		{name: "normal", data: []Child{}, rules: []Rule{presentRule{}}},
+		{name: "slice_pointer", data: &[]Child{}},
 		{name: "nil_type", data: nil, err: errors.New("type, nil, is not a Slice or Array")},
-		{name: "pointer", data: &[]Child{}, err: errors.New("type, *[]firm.Child, is not a Slice or Array")},
 		{name: "not_slice", data: Child{}, err: errors.New("type, firm.Child, is not a Slice or Array")},
 		{name: "no_matching_rule", data: []Child{}, rules: []Rule{noMatchingRule},
 			err: fmt.Errorf("element type: %w", noMatchingRule.TypeCheck(reflect.TypeFor[Child]()))},
@@ -691,13 +720,20 @@ func TestSliceAny_ValidateAll(t *testing.T) {
 
 	for _, tc := range sliceValidatorTestCases {
 		t.Run(tc.name, func(t *testing.T) {
+			validator := tc.validator
+			if validator == nil {
+				validator = sliceValidator
+			}
 			rawData := tc.f()
 			errKeySuffixes := make([]string, len(tc.errorKeys))
 			for i, key := range tc.errorKeys {
 				errKeySuffixes[i] = joinKeys(key, presentRuleKey)
 			}
+			// rawData comes boxed in an any, so &rawData would be a *any; build a typed pointer instead
+			ptrData := reflect.New(reflect.TypeOf(rawData))
+			ptrData.Elem().Set(reflect.ValueOf(rawData))
 			testValidateAll(t, validator, rawData, presentRuleError(""), errKeySuffixes...)
-			testValidateAll(t, validator, &rawData, presentRuleError(""), errKeySuffixes...)
+			testValidateAll(t, validator, ptrData.Interface(), presentRuleError(""), errKeySuffixes...)
 		})
 	}
 }
@@ -712,7 +748,7 @@ func TestSliceAny_TypeCheck(t *testing.T) {
 		badCondition string
 	}{
 		{name: "matching slice", data: []sliceValidatorElement{}},
-		{name: "matching slice pointer", data: &[]sliceValidatorElement{}, badCondition: badCondition},
+		{name: "matching slice pointer", data: &[]sliceValidatorElement{}},
 		{name: "other slice", data: []int{}, badCondition: badCondition},
 		{name: "not slice", data: 1, badCondition: badCondition},
 	}
@@ -830,7 +866,7 @@ func TestValueAny_TypeCheck(t *testing.T) {
 		badCondition string
 	}{
 		{name: "matching int", data: 0},
-		{name: "matching int pointer", data: &i, badCondition: "is not matching of type int"},
+		{name: "matching int pointer", data: &i},
 		{name: "not int", data: []int{}, badCondition: "is not matching of type int"},
 	}
 

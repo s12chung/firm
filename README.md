@@ -2,7 +2,7 @@
 
 > Declarative validation rules in plain Go--no struct tags.
 
-- Register validation rules once per type; nested structs, pointers, and slices recurse automatically
+- Register validation rules once per type; recurse into nested structs, pointers, and slices
 - Validations return structured, templated, easy to inspect `error`s
 - Compose validation rules or implement your own with a 2 function interface
 - Zero runtime dependencies
@@ -40,8 +40,12 @@ func init() {
 			// `StructField`s are represented by a `firm.RuleMap`.
 			//
 			// For the `Queries` `StructField` as a slice,
-			// recurse into each element's registered `Query` definition below
-			Validates(firm.RuleMap{"Queries": {}}),
+			// recurse into each element's registered `Query` definition below.
+			// `firm.MustNewSlice()` steps down to each element,
+			// then `firm.Backed()` validates it with the registered definition
+			Validates(firm.RuleMap{
+				"Queries": {firm.MustNewSlice[[]Query](firm.Backed())},
+			}),
 	)
 	firm.MustRegisterType(
 		// For the `Query` struct
@@ -92,13 +96,13 @@ Validation failures return `firm.ErrorMap`, a map of `firm.ErrorKey` to `firm.Te
 
 Validation occurs recursively down levels on these types:
 
-- `firm.Registry` is a mapping of types to `firm.Validator`. `firm.MustRegisterType()` runs `firm.DefaultRegistry.MustRegisterType()`. Validate through the `firm.Registry` for recursion.
-- `firm.Validator`s are wrappers around `firm.Rule`s
-- `firm.Rule` are validation rules
+- `firm.Registry` is a mapping of types to `firm.Validator`. `firm.MustRegisterType()` runs `firm.DefaultRegistry.MustRegisterType()`. Also, handles recursion, see [Recursion](#recursion) section
+- `firm.Validator` is an interface, where built-in implementations act as wrappers around `firm.Rule`s
+- `firm.Rule` are validation rules, which expect **non-pointers only** and all layers of indirection are handled by the built-in `firm.Validator`s--given `**Child` or `*[]*Child`, the rule will receive the same `Child` value
 
-The default go-to validation function is `ValidateAny(data any) ErrorMap`, which is implemented on `firm.Registry` and `firm.Validator`. Accepts anything--values or pointers, including nil pointers. Also handles invalid types.
+The go-to validation function is `ValidateAny(data any) ErrorMap`, which is implemented on `firm.Registry` and `firm.Validator`. Accepts anything--values or pointers, including nil pointers. Also handles invalid types.
 
-- `firm.Registry` unregistered types return "not found in Registry" error. Nice for recursion.
+- `firm.Registry` unregistered types return "not found in Registry" error
 - `firm.Validator` is an interface, built-in validators will return "is not matching type" error
 
 Feel free to make your own registry or skip the registry entirely:
@@ -115,7 +119,7 @@ errMap := typedValueValidator.ValidateAny(-1)
 ```
 
 - `Validate(data T) ErrorMap` is a typed `ValidateAny()` via generics--the `data` arg is typed, but rules can be any `firm.Rule`. More complicated, but avoids reflection and enforces type safety.
-- `ValidateValue(value reflect.Value) ErrorMap` is implemented on all the types described above. Annoying to use, but good abstraction.
+- `ValidateValue(value reflect.Value) ErrorMap` is implemented on all the types described above. Annoying to use, but a good abstraction.
 
 ```go
 typedValueValidator := firm.MustNewValue[int](rule.Greater[int]{To: 0})
@@ -124,6 +128,8 @@ errMap := typedValueValidator.Validate(-1)
 
 ### Rules
 
+`firm.Rule` is the basic primitive.
+
 ```go
 type Rule interface {
 	ValidateValue(value reflect.Value) ErrorMap
@@ -131,7 +137,9 @@ type Rule interface {
 }
 ```
 
-`firm.Rule` is the basic primitive. Built-in rules are in the `rule` package:
+`ValidateValue()` and `TypeCheck()` always receive the underlying value and type--**never a pointer**. All layers of indirection are handled by the built-in `firm.Validator`s.
+
+Built-in rules are in the `rule` package:
 
 | Rule | Checks |
 | --- | --- |
@@ -148,6 +156,8 @@ You can implement your own too:
 ```go
 type Even struct{}
 
+// ValidateValue expects reflect.Value to NOT be a pointer
+// firm will indirect pointers and pass the value into the firm.Rule
 func (e Even) ValidateValue(value reflect.Value) firm.ErrorMap {
 	if value.Int()%2 == 0 {
 		return nil
@@ -155,6 +165,8 @@ func (e Even) ValidateValue(value reflect.Value) firm.ErrorMap {
 	return e.ErrorMap()
 }
 
+// TypeCheck expects reflect.Type to NOT be a pointer
+// firm will indirect pointers for you and pass type value into the firm.Rule
 func (e Even) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 	if typ.Kind() == reflect.Int {
 		return nil
@@ -187,10 +199,14 @@ type RuleTyped[T any] interface {
 
 type Even struct{}
 
+// ValidateValue expects reflect.Value to NOT be a pointer
+// firm will indirect pointers and pass the value into the firm.Rule
 func (e Even) ValidateValue(value reflect.Value) firm.ErrorMap {
 	return e.Validate(int(value.Int()))
 }
 
+// TypeCheck expects reflect.Type to NOT be a pointer
+// firm will indirect pointers for you and pass type value into the firm.Rule
 func (e Even) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 	if typ.Kind() == reflect.Int {
 		return nil
@@ -214,7 +230,7 @@ func (e Even) Validate(data int) firm.ErrorMap {
 
 ### Attributes
 
-`rule.Attr` is a struct that implements `firm.Rule`, which allows for rules on derived values.
+`rule.Attr` is a struct that implements `firm.Rule`, which allows for rules on derived values called attributes.
 
 ```go
 type Attr struct {
@@ -259,7 +275,8 @@ The `firm` package provides:
 
 | Validator | Intent |
 | --- | --- |
-| `firm.Registry` | registries are validators too, just based on registration with unregistered type checking and recursion |
+| `firm.Registry` | Registries are validators too, just based on registration, see [Recursion](#recursion) section |
+| `firm.RegistryBacker` | handles recursion, essentially a `firm.Registry` wrapper, see [Recursion](#recursion) section |
 | `firm.ValueAny` | validates simple values (not structs or slices) |
 | `firm.StructAny` | validates structs, mapping fields to rules via `firm.RuleMap` |
 | `firm.SliceAny` | slices and arrays, running rules on all elements |
@@ -277,6 +294,50 @@ type ValidatorTyped[T any] interface {
 ```
 
 `firm.ValidatorTyped[T any]` can use any `firm.Rule`--not just typed ones!
+
+## Recursion
+
+### Registries
+
+Recursion begins with a `firm.Registry`--a mapping of types to `firm.Validator`. Example usage is in the [Quickstart](#quickstart) section.
+
+```go
+firm.NewDefinition[Config]().
+	ValidatesSelf(rule.Present{}).
+	Validates(firm.RuleMap{
+		"Queries": {firm.MustNewSlice[[]Query](firm.Backed())},
+	})
+```
+
+1. Register types with `firm.NewDefinition[Config]()`
+    a. `ValidatesSelf()` - defines `firm.Rule`s on the type's value "itself"--`Config{}` (usually a `struct`, but you do you)
+    b. `Validates()` - defines `firm.Rule`s on the `StructField`s
+2. Pass in **anything** to `ValidateAny(data any)`--the type is inferred to validate with the correct `firm.Validator`. Like all built-in validators, all layers of indirection are handled--given `**Child` or `*[]*Child`, rules will receive the same `Child` value. Unregistered types return "not found in Registry" error
+
+`ValidateAny()` will basically use these rules:
+
+- `append(validatesSelfRules, firm.StructAny)` - applied to "self"--`Config{}`
+- `firm.RegistryBacker{ firm.DefaultRegistry }` - applied to each element of `Config.Queries`
+
+`firm.Backed()` is shorthand for `firm.DefaultRegistry.Backed()`, which reads nice.
+
+`RegistryBacker` basically wraps around `firm.DefaultRegistry`, every call goes to it. The difference is when `RegistryBacker` is passed to `NewStructAny`, `Config.Queries`'s type is given to it, allowing access to `Config.Queries`'s validator when `ValidateAny(nil)` is called. `firm.Registry` can't infer the type from `nil` and returns a "not found in Registry" error instead.
+
+### Slices and Arrays
+
+`firm.MustNewSlice()` steps down into each element of a slice or array--its element rules apply to every element:
+
+```go
+firm.NewDefinition[Config]().
+	Validates(firm.RuleMap{
+		// rules apply to each `Query` element, NOT the `Queries` slice itself
+		"Queries": {firm.MustNewSlice[[]Query](firm.Backed())},
+	})
+```
+
+`NewSlice()`/`MustNewSlice()` define the type via generics. Validators have value types--`[]Query`, not `*[]Query`. Since all rules expect values, this is ok: all pointers are indirected anyway--given `*[]*Query`, element rules receive the same `Query` value.
+
+For arrays, the generic constraint is too narrow (`T []U` is slices-only)--use `NewSliceAny()`, which handles Arrays too, but forces you to define the type via `reflect`.
 
 ## Examples
 

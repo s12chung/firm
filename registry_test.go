@@ -23,33 +23,46 @@ func TestRegistry_RegisterType(t *testing.T) {
 
 	registry := &Registry{}
 	require.NoError(registry.RegisterType(NewDefinition[registryParent]().
-		Validates(RuleMap{"Child": {}}).
+		Validates(RuleMap{"Child": {registry.Backed()}}).
 		ValidatesSelf(presentRule{})))
 
 	registryParentType := reflect.TypeFor[registryParent]()
+	registryChildType := reflect.TypeFor[registryChild]()
 	typeToValidator := map[reflect.Type]*ValueAny{
 		registryParentType: {
 			typ: registryParentType,
 			rules: []Rule{presentRule{},
-				StructAny{typ: reflect.TypeFor[registryParent](), ruleMap: map[string]*[]Rule{"Child": {}}},
+				StructAny{typ: registryParentType, ruleMap: map[string]*[]Rule{
+					// stamped at registration with the field's type
+					"Child": {RegistryBacker{Registry: registry, typ: registryChildType}},
+				}},
 			}},
 	}
-	registryChildType := reflect.TypeFor[registryChild]()
 	require.Equal(typeToValidator, registry.typeToValidator)
-	require.Equal(map[reflect.Type][]*[]Rule{registryChildType: {{}}}, registry.unregisteredTypeRefs)
 
 	require.NoError(registry.RegisterType(NewDefinition[registryChild]()))
-
-	typeToValidator[registryParentType] = &ValueAny{typ: registryParentType, rules: []Rule{presentRule{},
-		StructAny{typ: registryParentType, ruleMap: map[string]*[]Rule{
-			"Child": {&ValueAny{typ: registryChildType, rules: []Rule{}}},
-		}}}}
 	typeToValidator[registryChildType] = &ValueAny{typ: registryChildType, rules: []Rule{}}
 	require.Equal(typeToValidator, registry.typeToValidator)
-	require.Equal(map[reflect.Type][]*[]Rule{}, registry.unregisteredTypeRefs)
 
 	require.Equal(errors.New("RegisterType() with type firm.registryParent already exists"),
 		registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
+}
+
+type registryNonStruct int
+
+func TestRegistry_RegisterType_NonStruct(t *testing.T) {
+	require := require.New(t)
+
+	registry := &Registry{}
+	require.NoError(registry.RegisterType(NewDefinition[registryNonStruct]().ValidatesSelf(presentRule{})))
+
+	valid := registryNonStruct(1)
+	testValidateAll(t, registry, valid, nil)
+	testValidateAll(t, registry, &valid, nil)
+
+	invalid := registryNonStruct(0)
+	testValidateAll(t, registry, invalid, presentRuleError(""), presentRuleKey)
+	testValidateAll(t, registry, &invalid, presentRuleError(""), presentRuleKey)
 }
 
 func notFoundError(data any) ErrorMap {
@@ -116,8 +129,8 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			require.NoError(registry.RegisterType(tc.definition))
 
 			if tc.name == "invalid" {
+				require.Equal(notFoundError(nilType{}), registry.ValidateAny(nil))
 				var data any
-				require.Equal(errInvalidValue, registry.ValidateAny(data))
 				require.Equal(notFoundError(&data), registry.ValidateAny(&data))
 				return
 			}
@@ -186,4 +199,83 @@ func TestRegistry_Validator(t *testing.T) {
 			require.Equal(tc.expected, registry.Validator(reflect.TypeOf(tc.data)))
 		})
 	}
+}
+
+type multiPtrParent struct {
+	Ptr  ***Child
+	Ptrs *[]**Child
+}
+
+// nolint:funlen // a bunch of test cases
+func TestMultiPtr_ValidateAll(t *testing.T) {
+	registry := &Registry{}
+	require.NoError(t, registry.RegisterType(NewDefinition[multiPtrParent]().Validates(RuleMap{
+		"Ptr":  {presentRule{}, registry.Backed()},
+		"Ptrs": {presentRule{}, MustNewSlice[[]**Child](registry.Backed())},
+	})))
+	require.NoError(t, registry.RegisterType(NewDefinition[Child]().Validates(RuleMap{
+		"Validates": {presentRule{}},
+	})))
+
+	// valid
+	good := Child{Validates: "ok"}
+	pGood := &good
+	ppGood := &pGood
+
+	// empty
+	empty := Child{}
+	pEmpty := &empty
+	ppEmpty := &pEmpty
+
+	var nilChild *Child
+	pNil := &nilChild
+	ppNil := &pNil
+
+	tcs := []struct {
+		name        string
+		data        any
+		err         *TemplateError
+		keySuffixes []string
+	}{
+		{name: "Child___valid", data: &ppGood},
+		{name: "Child___empty", data: &ppEmpty, err: presentRuleError(""),
+			keySuffixes: []string{joinKeys("Validates", presentRuleKey)}},
+
+		{name: "Parent___valid", data: multiPtrParent{Ptr: &ppGood, Ptrs: &[]**Child{ppGood}}},
+		{name: "Parent___empty", data: multiPtrParent{},
+			err: presentRuleError(""), keySuffixes: []string{
+				joinKeys("Ptr", presentRuleKey),
+				joinKeys("Ptrs", presentRuleKey),
+			}},
+		{name: "Parent___Ptr_empty", data: multiPtrParent{Ptr: &ppEmpty, Ptrs: &[]**Child{ppGood}},
+			err: presentRuleError(""), keySuffixes: []string{
+				joinKeys("Ptr", presentRuleKey),
+				joinKeys("Ptr.Validates", presentRuleKey),
+			}},
+		{name: "Parent__Ptr_nil", data: multiPtrParent{Ptr: ppNil, Ptrs: &[]**Child{ppGood}},
+			err: presentRuleError(""), keySuffixes: []string{
+				joinKeys("Ptr", presentRuleKey),
+			}},
+		{name: "Parent___Ptrs_mixed", data: multiPtrParent{Ptr: &ppGood, Ptrs: &[]**Child{nil, ppEmpty}},
+			// nil elements are indirected into invalid values and silently skipped by the RegistryBacker,
+			// so only the empty child surfaces errors
+			err: presentRuleError(""), keySuffixes: []string{
+				joinKeys("Ptrs.[1].Validates", presentRuleKey),
+			}},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			testValidateAll(t, registry, tc.data, tc.err, tc.keySuffixes...)
+		})
+	}
+}
+
+func TestRegistryBacker(t *testing.T) {
+	require := require.New(t)
+
+	registry := &Registry{}
+	require.NoError(RegisterType(NewDefinition[registryChild]()))
+
+	// unstamped backers have no type, so they fall back to the DefaultValidator's NotFound error
+	require.Equal(notFoundError(registryParent{}), registry.Backed().ValidateAny(registryParent{}))
 }

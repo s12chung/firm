@@ -47,6 +47,7 @@ func typeCheckErrorResult(rule Rule, data any) ErrorMap {
 	return ErrorMap{"TypeCheck": rule.TypeCheck(reflect.TypeOf(data)).TemplateError()}
 }
 
+// testValidateAll asserts ValidateAny/ValidateValue/ValidateMerge, expecting err keyed at every keySuffix
 func testValidateAll(t *testing.T, validator Validator, data any, err *TemplateError, keySuffixes ...string) {
 	testValidateAllFull(t, false, validator, data, err, keySuffixes...)
 }

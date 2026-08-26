@@ -11,9 +11,8 @@ import (
 // e.g. in init(). Once registration completes, ValidateAny/ValidateValue/TypeCheck
 // are safe for concurrent use.
 type Registry struct {
-	typeToValidator      map[reflect.Type]*ValueAny
-	unregisteredTypeRefs map[reflect.Type][]*[]Rule
-	DefaultValidator     Validator
+	typeToValidator  map[reflect.Type]*ValueAny
+	DefaultValidator Validator
 }
 
 // MustRegisterType registers the Definition to validate the type, panics if there is an error
@@ -27,7 +26,6 @@ func (r *Registry) MustRegisterType(definition *Definition) {
 func (r *Registry) RegisterType(definition *Definition) error {
 	if r.typeToValidator == nil {
 		r.typeToValidator = map[reflect.Type]*ValueAny{}
-		r.unregisteredTypeRefs = map[reflect.Type][]*[]Rule{}
 	}
 
 	typ := definition.typ
@@ -35,56 +33,32 @@ func (r *Registry) RegisterType(definition *Definition) error {
 		return fmt.Errorf("RegisterType() with type %v already exists", typ.String())
 	}
 
-	r.typeToValidator[typ] = r.registeredStruct(definition)
-	for _, rules := range r.unregisteredTypeRefs[typ] {
-		*rules = append(*rules, r.typeToValidator[typ])
-	}
-	delete(r.unregisteredTypeRefs, typ)
+	r.typeToValidator[typ] = r.toValidator(definition)
 	return nil
 }
 
-func (r *Registry) registeredStruct(definition *Definition) *ValueAny {
+func (r *Registry) toValidator(definition *Definition) *ValueAny {
 	typ := definition.Type()
 	selfRules := definition.SelfRules()
 	if len(definition.RuleMap()) > 0 {
-		structValidator := mustNewValidator(func() (StructAny, error) { return NewStructAny(definition.typ, definition.RuleMap()) })
-		for fieldName := range structValidator.ruleMap {
-			field, _ := typ.FieldByName(fieldName)
-			r.chainAndTraverseForStructs(field.Type, structValidator.ruleMap[fieldName])
-		}
-		selfRules = append(selfRules, structValidator)
+		selfRules = append(selfRules, mustNewValidator(func() (StructAny, error) { return NewStructAny(definition.typ, definition.RuleMap()) }))
 	}
 	v := mustNewValidator(func() (ValueAny, error) { return NewValueAny(typ, selfRules...) })
 	return &v
 }
 
-func (r *Registry) chainAndTraverseForStructs(typ reflect.Type, rules *[]Rule) {
-	// Registry handles indirect types only, user can't control the types here
-	typ = indirectType(typ)
+// nilType stands-in for nil values--it is private, so it can't be registered outside of this package
+// and validation returns a "not found in Registry" error
+type nilType struct{}
 
-	//nolint:exhaustive // just need these cases
-	switch typ.Kind() {
-	case reflect.Struct:
-		validator := r.typeToValidator[typ]
-		if validator == nil {
-			// can't find validator now without registering first, so update rules then
-			r.unregisteredTypeRefs[typ] = append(r.unregisteredTypeRefs[typ], rules)
-		} else {
-			*rules = append(*rules, validator.Rules()...) // add existing Field rules
-		}
-	case reflect.Slice, reflect.Array:
-		// validator represents the Slice rules applied to all elements
-		validator := mustNewValidator(func() (SliceAny, error) { return NewSliceAny(typ) })
-		*rules = append(*rules, &validator)
-		r.chainAndTraverseForStructs(typ.Elem(), &validator.elementRules)
-	}
-}
+// nilValue is used when the data is invalid (e.g. nil), since the type can't be inferred
+var nilValue = reflect.ValueOf(nilType{})
 
 // ValidateAny validates the data with the correct validator
 func (r *Registry) ValidateAny(data any) ErrorMap {
 	value := reflect.ValueOf(data)
 	if !value.IsValid() {
-		return errInvalidValue
+		value = nilValue
 	}
 	// value is used here, so can't use validateValue to save reflect.TypeOf call
 	return validateValueResult(r.DefaultedValidator(value.Type()), value)
@@ -130,3 +104,41 @@ func (r *Registry) Validator(typ reflect.Type) Validator {
 	}
 	return validator
 }
+
+// Backed returns a RegistryBacker for the Registry
+func (r *Registry) Backed() RegistryBacker { return RegistryBacker{Registry: r} }
+
+// RegistryBacker safely validates against a Registry.
+// typ allows handling `nil` values, as the reflect.Type can't be inferred.
+// typ is set via stampRegistryBackers() through NewStructAny().
+// Intended to be used with Registry.Backed() for easy reading.
+type RegistryBacker struct {
+	Registry *Registry
+	typ      reflect.Type
+}
+
+// ValidateAny validates the data
+func (b RegistryBacker) ValidateAny(data any) ErrorMap {
+	return b.Registry.DefaultedValidator(b.typ).ValidateAny(data)
+}
+
+// ValidateValue validates the data value (assumes TypeCheck is called)
+func (b RegistryBacker) ValidateValue(value reflect.Value) ErrorMap {
+	if !value.IsValid() {
+		return nil
+	}
+	errorMap := ErrorMap{}
+	b.ValidateMerge(value, "", errorMap)
+	return errorMap.ToNil()
+}
+
+// ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
+func (b RegistryBacker) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	if !value.IsValid() {
+		return
+	}
+	b.Registry.DefaultedValidator(b.typ).ValidateMerge(value, key, errorMap)
+}
+
+// TypeCheck checks whether the type is valid for the Rule
+func (b RegistryBacker) TypeCheck(typ reflect.Type) *RuleTypeError { return b.Registry.TypeCheck(typ) }
