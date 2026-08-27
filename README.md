@@ -29,27 +29,30 @@ func init() {
 	// Define validations (Step 1 of 2)
 	// Defined in `init()` to avoid concurrent `map` changes
 	//
+	// Register a type to `firm.DefaultRegistry`
 	firm.MustRegisterType(
-		// For the `Config` struct
+		// For the `firm.Definition` of the `Config` struct, which represents a `firm.FieldsAnyVldr`
 		firm.NewDefinition[Config]().
 			// On the `Config` struct "itself", NOT the `Config`'s fields,
 			// validate whether the struct is present (a non-empty value)
-			//
-			// Can be used to register non-Structs (not recommended though)
 			ValidatesSelf(rule.Present{}).
 			// Fields are represented by a `firm.RuleMap`.
 			//
-			// For the `Config.Queries` slice field (implied `[]firm.Rule{}`),
+			// For the `Config.Queries` slice field,
 			// for each element (`firm.Elems()`),
-			// validate using the `Query` definition backed by `firm,DefaultRegistry` `(`firm.Backed()`)
+			// validate using the validation defined for `Query` "backed" by `firm.DefaultRegistry` `(`firm.Backed()`)
+			//
+			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}})`
+			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
 			Validates(firm.RuleMap{
 				"Queries": {firm.Elems[[]Query](firm.Backed())},
 			}),
 	)
+	// Register a type to `firm.DefaultRegistry`
 	firm.MustRegisterType(
-		// For the `Query` struct
+		// For the `firm.Definition` of the `Query` struct, which represents a `firm.FieldsAnyVldr`
 		firm.NewDefinition[Query]().
-			// For the `Str` string field (implied `[]firm.Rule{}`),
+			// For the `Str` string field,
 			// validate whether the string is present--a non-empty value (`rule.Present{}`)
 			Validates(firm.RuleMap{
 				"Str": {rule.Present{}},
@@ -97,7 +100,7 @@ Validation occurs recursively down levels on these types:
 
 - `firm.Registry` is a mapping of types to `firm.Validator`. `firm.MustRegisterType()` runs `firm.DefaultRegistry.MustRegisterType()`. Also, handles recursion, see [Recursion](#recursion) section
 - `firm.Validator` is an interface, where built-in implementations act as wrappers around `firm.Rule`s
-- `firm.Rule` are validation rules, which expect **non-pointers only** and all layers of indirection are handled by the built-in `firm.Validator`s--given `**Child` or `*[]*Child`, the rule will receive the same `Child` value
+- `firm.Rule` are validation rules, which expect **non-pointers only** and all layers of indirection are handled by the built-in `firm.Validator`s. Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. The same rules will apply the same slice and same `Child`.
 
 The go-to validation function is `ValidateAny(data any) ErrorMap`, which is implemented on `firm.Registry` and `firm.Validator`. Accepts anything--values or pointers, including nil pointers. Also handles invalid types.
 
@@ -107,7 +110,8 @@ The go-to validation function is `ValidateAny(data any) ErrorMap`, which is impl
 Feel free to make your own registry or skip the registry entirely:
 
 ```go
-(&firm.Registry{}).MustRegisterType(firm.NewDefinition[Query]().
+registry := &firm.Registry{}
+registry.MustRegisterType(firm.NewDefinition[Query]().
 	Validates(firm.RuleMap{
 		"Str": {rule.Present{}},
 	}),
@@ -274,12 +278,12 @@ The `firm` package provides:
 
 | Constructor | Intent |
 | --- | --- |
-| `firm.Fields[T](ruleMap)` | validates structs, mapping fields to rules via `firm.RuleMap` (`firm.FieldsVldr[T]`) |
-| `FieldsAny(type, ruleMap)` | |
-| `firm.Elems[[]T](rules...)` | slices and arrays, running rules on all elements |
-| `ElemsAny(type, rules...)` | |
-| `firm.Value[T](rules...)` | validates simple values (not structs or slices) |
-| `ValueAny(type, rules...)` | |
+| `firm.Fields[T](ruleMap)` | validates structs, mapping fields to rules via `firm.RuleMap`. returns `firm.FieldsVldr[T]` |
+| `FieldsAny(type, ruleMap)` | same as above. returns `firm.FieldsAnyVldr` |
+| `firm.Elems[[]T](rules...)` | slices and arrays, running rules on all elements. returns `firm.ElemsVldr[[]T]` |
+| `ElemsAny(type, rules...)` | same as above. returns `firm.ElemsAnyVldr` |
+| `firm.Value[T](rules...)` | validates simple values. returns `firm.ValueVldr[T]` |
+| `ValueAny(type, rules...)` | same as above. returns `firm.ValueAnyVldr` |
 
 All constructors in the table above `panic()` when there is an error and have a -`WithErr` suffixed version. Naming is intended to be cleanly declarative.
 
@@ -304,47 +308,59 @@ Via generics, `firm.ValidatorTyped[T any]` can call `Validate()`. Avoids reflect
 
 ### Registries
 
-Recursion begins with a `firm.Registry`--a mapping of types to `firm.Validator`. Example usage is in the [Quickstart](#quickstart) section.
+Recursion begins with a `firm.Registry`--a map of types to `firm.Validator`s ("registrations"). Below is the same example usage from the [Quickstart](#quickstart) section.
 
 ```go
-firm.NewDefinition[Config]().
-	ValidatesSelf(rule.Present{}).
-	Validates(firm.RuleMap{
-		"Queries": {firm.Elems[[]Query](firm.Backed())},
-	})
+// Register a type to `firm.DefaultRegistry`
+firm.MustRegisterType(
+	// For the `firm.Definition` of the `Config` struct, which represents a `firm.FieldsAnyVldr`
+	firm.NewDefinition[Config]().
+		// On the `Config` struct "itself", NOT the `Config`'s fields,
+		// validate whether the struct is present (a non-empty value)
+		ValidatesSelf(rule.Present{}).
+		// Fields are represented by a `firm.RuleMap`.
+		//
+		// For the `Config.Queries` slice field (implied `[]firm.Rule{}`),
+		// for each element (`firm.Elems()`),
+		// validate using the validation defined for `Query` "backed" by `firm.DefaultRegistry` `(`firm.Backed()`)
+		//
+		// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}})`
+		// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
+		Validates(firm.RuleMap{
+			"Queries": {firm.Elems[[]Query](firm.Backed())},
+		}),
+)
 ```
 
-1. Register types with `firm.NewDefinition[Config]()`
-    a. `ValidatesSelf()` - defines `firm.Rule`s on the type's value "itself"--`Config{}` (usually a `struct`, but you do you)
-    b. `Validates()` - defines `firm.Rule`s on the fields
-2. Pass in **anything** to `ValidateAny(data any)`--the type is inferred to validate with the correct `firm.Validator`. Like all built-in validators, all layers of indirection are handled--given `**Child` or `*[]*Child`, rules will receive the same `Child` value. Unregistered types return "not found in Registry" error
+`firm.Registry` takes a `firm.Definition`, which creates a `firm.FieldsAnyVldr` for the type definition.
 
-`ValidateAny()` will basically use these rules:
+`firm.MustRegisterType()/Backed()` is shorthand for `firm.DefaultRegistry.MustRegisterType()/Backed()`. You can use your own registry too (`&firm.Registry{}`). Registries allow explicit recursion "backed" by `firm.DefaultRegistry` by using the type map to find `Query`'s validator.
 
-- `append(validatesSelfRules, firm.FieldsAnyVldr)` - applied to "self"--`Config{}`
-- `firm.RegistryBacker{ firm.DefaultRegistry }` - applied to each element of `Config.Queries`
+Pass **anything** to `ValidateAny(data any)`--the type is inferred to validate with the correct `firm.Validator`. Like all built-in validators, all pointers are indirected. Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. The same rules will apply the same slice and same `Child`. Unregistered types return "not found in Registry" error.
 
-`firm.Backed()` is shorthand for `firm.DefaultRegistry.Backed()`, which reads nice.
+`firm.DefaultRegistry.Backed()` returns a `firm.RegistryBacker`, which basically covers `firm.DefaultRegistry`'s gotcha and proxies every call to it.
 
-`RegistryBacker` basically wraps around `firm.DefaultRegistry`, every call goes to it. The difference is when `RegistryBacker` is passed to `FieldsAnyWithErr`, `Config.Queries`'s type is given to it, allowing access to `Config.Queries`'s validator when `ValidateAny(nil)` is called. `firm.Registry` can't infer the type from `nil` and returns a "not found in Registry" error instead.
+In detail, `firm.Registry` can't infer the type from `nil` when `ValidateAny(nil)` is called, so a "not found in Registry" error is returned. `firm.RegistryBacker` covers the gotcha as thus:
+
+1. From `frim.Fields[T]()` (and other constructors), `firm.RegistryBacker` is given `Config.Queries`'s type
+2. Given the type, `firm.RegistryBacker` always has access to `Config.Queries`'s validator
+3. So `Config.Queries`'s rules are applied to that field's elements (`Query` structs)
 
 ### Slices and Arrays
 
-`firm.Elems()` steps down into each element of a slice or array--its element rules apply to every element:
+`Elems[[]T]()` returns `firm.ElemsVldr[[]T]`, which applies it's rules into each element of a slice or array:
 
 ```go
-firm.NewDefinition[Config]().
-	Validates(firm.RuleMap{
-		// For the `Config.Queries` slice field (implied `[]firm.Rule{}`),
-		// for each element (`firm.Elems()`),
-		// validate using the `Query` definition backed by `firm,DefaultRegistry` `(`firm.Backed()`)
-		"Queries": {firm.Elems[[]Query](firm.Backed())},
-	})
+// For each element (`firm.Elems()`),
+// validate whether the `Child` struct is present--a non-empty value (`rule.Present{}`)
+elementsValidator := firm.Elems[[]Child](rule.Present{})}
+elementsValidator.ValidateAny([]Child{Child{Name: "Valid"}})
+elementsValidator.Validate(&[]**Child{Child{Name: "Also Valid"}}) // All pointers are indirected, so valid too
 ```
 
-`ElemsWithErr()`/`Elems()` define the type via generics. All rules expect values, so pointer types are indirected, so `ElemsAny(*[]Query)` works on `[]Query`.
+`Elems[[]T]()/ElemsWithErr[[]T]()` define the type via generics.
 
-For arrays, the generic constraint is too narrow (`T []U` is slices-only)--use `ElemsAny()`/`ElemsAnyWithErr()`, which handle arrays too, but force you to define the type via `reflect`.
+For arrays, the generic constraint is too narrow (`T []U` is slices-only)--use the non-pointer versions, `ElemsAny()/ElemsAnyWithErr()`, which handle arrays too, but force you to define the type via `reflect.Type`. The type is indirected as well.
 
 ## Examples
 
