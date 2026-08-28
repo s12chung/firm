@@ -20,16 +20,16 @@ type parent struct {
 	BasicEmptyValidates     Child
 	PtEmptyValidates        *Child
 	AnyEmptyValidates       any
-	ArrayValidates          []Child
-	ArrayPtValidates        []*Child
-	PtArrayValidates        *[]Child
+	SliceValidates          []Child
+	SlicePtValidates        []*Child
+	PtSliceValidates        *[]Child
 	PrimitiveNoValidates    int
 	BasicNoValidates        Child
 	PtNoValidates           *Child
 	AnyNoValidates          any
-	ArrayNoValidates        []Child
-	ArrayPtNoValidates      []*Child
-	PtArrayNoValidates      *[]Child
+	SliceNoValidates        []Child
+	SlicePtNoValidates      []*Child
+	PtSliceNoValidates      *[]Child
 }
 
 type Child struct {
@@ -49,10 +49,10 @@ func fullParent() parent {
 		Array: []Child{*fc(), *fc()}, ArrayPt: []*Child{fc(), fc()}, PtArray: &[]Child{*fc(), *fc()},
 		// validate Child
 		PrimitiveEmptyValidates: 1, BasicEmptyValidates: *fc(), PtEmptyValidates: fc(), AnyEmptyValidates: *fc(),
-		ArrayValidates: []Child{*fc(), *fc()}, ArrayPtValidates: []*Child{fc(), fc()}, PtArrayValidates: &[]Child{*fc(), *fc()},
+		SliceValidates: []Child{*fc(), *fc()}, SlicePtValidates: []*Child{fc(), fc()}, PtSliceValidates: &[]Child{*fc(), *fc()},
 		// validate none
 		PrimitiveNoValidates: 1, BasicNoValidates: *fc(), PtNoValidates: fc(), AnyNoValidates: *fc(),
-		ArrayNoValidates: []Child{*fc(), *fc()}, ArrayPtNoValidates: []*Child{fc(), fc()}, PtArrayNoValidates: &[]Child{*fc(), *fc()},
+		SliceNoValidates: []Child{*fc(), *fc()}, SlicePtNoValidates: []*Child{fc(), fc()}, PtSliceNoValidates: &[]Child{*fc(), *fc()},
 	}
 }
 
@@ -80,9 +80,9 @@ func init() {
 		"BasicEmptyValidates":     {testRegistry.Backed()},
 		"PtEmptyValidates":        {testRegistry.Backed()},
 		"AnyEmptyValidates":       {},
-		"ArrayValidates":          {Elems[[]Child](testRegistry.Backed())},
-		"ArrayPtValidates":        {Elems[[]*Child](testRegistry.Backed())},
-		"PtArrayValidates":        {Elems[[]Child](testRegistry.Backed())},
+		"SliceValidates":          {Elems[[]Child](testRegistry.Backed())},
+		"SlicePtValidates":        {Elems[[]*Child](testRegistry.Backed())},
+		"PtSliceValidates":        {Elems[[]Child](testRegistry.Backed())},
 	}))
 	testRegistry.MustRegisterType(NewDefinition[Child]().Validates(RuleMap{
 		"Validates": {presentRule{}},
