@@ -307,7 +307,7 @@ Via generics, `firm.ValidatorTyped[T any]` can call `Validate()`. Avoids reflect
 | Constructor | Intent |
 | --- | --- |
 | `firm.Registry{DefaultValidator}` | Registries are validators too, just based on registration, see [Recursion](#recursion) section |
-| `regristry.Backed()/firm.RegistryBacker{Registry}` | handles recursion, essentially a `firm.Registry` wrapper, see [Recursion](#recursion) section |
+| `registry.Backed()/firm.RegistryBacker{Registry}` | handles recursion, essentially a `firm.Registry` wrapper, see [Recursion](#recursion) section |
 | `firm.RuleVldr{Rule}` | convenience `firm.Validator` struct that wraps around a `firm.Rule` |
 
 ## Recursion
@@ -348,7 +348,7 @@ Pass **anything** to `ValidateAny(data any)`--the type is inferred to validate w
 
 In detail, `firm.Registry` can't infer the type from `nil` when `ValidateAny(nil)` is called, so a "not found in Registry" error is returned. `firm.RegistryBacker` covers the gotcha as thus:
 
-1. From `frim.Fields[T]()`, `firm.RegistryBacker` is given `Config.Queries`'s type
+1. From `firm.Fields[T]()`, `firm.RegistryBacker` is given `Config.Queries`'s type
 2. Given the type, `firm.RegistryBacker` always has access to `Config.Queries`'s validator
 3. So `Config.Queries`'s rules are applied to that field's elements (`Query` structs)
 
@@ -361,9 +361,23 @@ Other constructors of build-in recursive validators (`Elems()`, `Keys()`, `Value
 ```go
 // For each element (`firm.Elems()`),
 // validate whether the `Child` struct is present--a non-empty value (`rule.Present{}`)
-elementsValidator := firm.Elems[[]Child](rule.Present{})}
-elementsValidator.ValidateAny([]Child{Child{Name: "Valid"}})
-elementsValidator.Validate(&[]**Child{Child{Name: "Also Valid"}}) // All pointers are indirected, so valid too
+elementsValidator := firm.Elems[[]Child](rule.Present{})
+
+toValidate := []Child{Child{Name: "Valid"}}
+elementsValidator.ValidateAny(toValidate)
+elementsValidator.Validate(toValidate)     // Typed validation
+elementsValidator.ValidateAny(&toValidate) // All pointers are indirected, so valid too
+
+// ptElementsValidator does the same operations as elementsValidator, but with pointer elements indirected
+ptElementsValidator := firm.Elems[[]**Child](rule.Present{})
+
+child := Child{Name: "Also Valid"}
+childPt := &child
+toValidatePt := []**Child{&childPt}
+
+ptElementsValidator.ValidateAny(toValidatePt)
+ptElementsValidator.Validate(toValidatePt)     // Typed validation
+ptElementsValidator.ValidateAny(&toValidatePt) // All pointers are indirected, so valid too
 ```
 
 `Elems[[]T]()/ElemsWithErr[[]T]()` define the type via generics.
@@ -378,8 +392,22 @@ For arrays, the generic constraint is too narrow (`T []U` is slices-only)--use t
 // For each value (`firm.Values()`),
 // validate whether the `Child` struct is present--a non-empty value (`rule.Present{}`)
 valuesValidator := firm.Values[map[string]Child](rule.Present{})
-valuesValidator.ValidateAny(map[string]Child{"Valid": {Name: "ok"}})
-valuesValidator.Validate(&map[string]Child{"Also Valid": {Name: "ok"}}) // All pointers are indirected, so valid too
+
+toValidate := map[string]Child{"Valid": {Name: "ok"}}
+valuesValidator.ValidateAny(toValidate)
+valuesValidator.Validate(toValidate)     // Typed validation
+valuesValidator.ValidateAny(&toValidate) // All pointers are indirected, so valid too
+
+// ptValuesValidator does the same operations as valuesValidator, but with pointer values indirected
+ptValuesValidator := firm.Values[map[string]**Child](rule.Present{})
+
+child := Child{Name: "ok"}
+childPt := &child
+toValidatePt := map[string]**Child{"Also Valid": &childPt}
+
+ptValuesValidator.ValidateAny(toValidatePt)
+ptValuesValidator.Validate(toValidatePt)     // Typed validation
+ptValuesValidator.ValidateAny(&toValidatePt) // All pointers are indirected, so valid too
 ```
 
 When returning errors, pointer keys are indirected  (e.g. `[mykey]`, `[<nil>]` for a nil key), as addresses are unstable and unreadable.
