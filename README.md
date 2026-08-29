@@ -282,6 +282,12 @@ The `firm` package provides:
 | `FieldsAny(type, ruleMap)` | same as above. returns `firm.FieldsAnyVldr` |
 | `firm.Elems[[]T](rules...)` | slices and arrays, running rules on all elements. returns `firm.ElemsVldr[[]T]` |
 | `ElemsAny(type, rules...)` | same as above. returns `firm.ElemsAnyVldr` |
+| `firm.Keys[map[K]V](rules...)` | maps, running rules on all keys. returns `firm.KeysVldr[map[K]V]` |
+| `KeysAny(type, rules...)` | same as above. returns `firm.KeysAnyVldr` |
+| `firm.Values[map[K]V](rules...)` | maps, running rules on all values. returns `firm.ValuesVldr[map[K]V]` |
+| `ValuesAny(type, rules...)` | same as above. returns `firm.ValuesAnyVldr` |
+| `firm.KeyValues[map[K]V](rules...)` | maps, running rules on all key-value pairs, passing each key-value pair as a `firm.KeyValue[K, V]` to validate. returns `firm.KeyValuesVldr[map[K]V]` |
+| `KeyValuesAny(type, rules...)` | same as above. returns `firm.KeyValuesAnyVldr` |
 | `firm.Value[T](rules...)` | validates simple values. returns `firm.ValueVldr[T]` |
 | `ValueAny(type, rules...)` | same as above. returns `firm.ValueAnyVldr` |
 
@@ -342,9 +348,11 @@ Pass **anything** to `ValidateAny(data any)`--the type is inferred to validate w
 
 In detail, `firm.Registry` can't infer the type from `nil` when `ValidateAny(nil)` is called, so a "not found in Registry" error is returned. `firm.RegistryBacker` covers the gotcha as thus:
 
-1. From `frim.Fields[T]()` (and other constructors), `firm.RegistryBacker` is given `Config.Queries`'s type
+1. From `frim.Fields[T]()`, `firm.RegistryBacker` is given `Config.Queries`'s type
 2. Given the type, `firm.RegistryBacker` always has access to `Config.Queries`'s validator
 3. So `Config.Queries`'s rules are applied to that field's elements (`Query` structs)
+
+Other constructors of build-in recursive validators (`Elems()`, `Keys()`, `Values()`, `KeyValues()`) also do Step 1 above.
 
 ### Slices and Arrays
 
@@ -361,6 +369,31 @@ elementsValidator.Validate(&[]**Child{Child{Name: "Also Valid"}}) // All pointer
 `Elems[[]T]()/ElemsWithErr[[]T]()` define the type via generics.
 
 For arrays, the generic constraint is too narrow (`T []U` is slices-only)--use the non-pointer versions, `ElemsAny()/ElemsAnyWithErr()`, which handle arrays too, but force you to define the type via `reflect.Type`. The type is indirected as well.
+
+### Maps
+
+`Keys[map[K]V]()/Values[map[K]V]()/KeyValues[map[K]V]()` return `firm.KeysVldr/ValuesVldr/KeyValuesVldr`, which applies it's rules into each key, value, key-value pair of a map:
+
+```go
+// For each value (`firm.Values()`),
+// validate whether the `Child` struct is present--a non-empty value (`rule.Present{}`)
+valuesValidator := firm.Values[map[string]Child](rule.Present{})
+valuesValidator.ValidateAny(map[string]Child{"Valid": {Name: "ok"}})
+valuesValidator.Validate(&map[string]Child{"Also Valid": {Name: "ok"}}) // All pointers are indirected, so valid too
+```
+
+When returning errors, pointer keys are indirected  (e.g. `[mykey]`, `[<nil>]` for a nil key), as addresses are unstable and unreadable.
+
+For key-value pair validations, `KeyValues[map[K]V]()` validates with:
+
+```go
+type KeyValue[K comparable, V any] struct {
+	Key   K
+	Value V
+}
+```
+
+A generic type can't be constructed via reflection, so `KeyValuesAny()/KeyValuesAnyWithErr()` validates entries as the equivalent anonymous struct, `struct { Key K; Value V }`--generic reflect types don't exist (see [golang/go#45591](https://github.com/golang/go/issues/45591), [golang/go#54393](https://github.com/golang/go/issues/54393)).
 
 ## Examples
 

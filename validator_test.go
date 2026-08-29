@@ -187,6 +187,70 @@ var structValidatorTestCases = []structValidatorTestCase{
 	}},
 
 	//
+	// Map
+	//
+	{name: "Map___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range changeParent.Map {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "Map___child_validates_zero", errorKeys: []string{"Map.[1].Validates", "Map.[2].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.Map["1"] = Child{}
+		changeParent.Map["2"] = Child{}
+		return changeParent
+	}},
+	{name: "Map___child_validates_one_zero", errorKeys: []string{"Map.[1].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.Map["1"] = Child{}
+		return changeParent
+	}},
+	{name: "Map___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.Map = map[string]Child{}
+		return changeParent
+	}},
+	{name: "Map___nil", errorKeys: []string{"Map"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.Map = nil
+		return changeParent
+	}},
+
+	//
+	// MapPt
+	//
+	{name: "MapPt___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range changeParent.MapPt {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "MapPt___child_validates_zero", errorKeys: []string{"MapPt.[1].Validates", "MapPt.[2].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPt["1"] = &Child{}
+		changeParent.MapPt["2"] = &Child{}
+		return changeParent
+	}},
+	{name: "MapPt___child_validates_one_zero", errorKeys: []string{"MapPt.[1].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPt["1"] = &Child{}
+		return changeParent
+	}},
+	{name: "MapPt___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPt = map[string]*Child{}
+		return changeParent
+	}},
+	{name: "MapPt___nil", errorKeys: []string{"MapPt"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPt = nil
+		return changeParent
+	}},
+
+	//
 	// PrimitiveEmptyValidates
 	//
 	{name: "PrimitiveEmptyValidates___zero", errorKeys: nil, f: func() parent {
@@ -365,6 +429,336 @@ var structValidatorTestCases = []structValidatorTestCase{
 	}},
 
 	//
+	// MapValidatesValues
+	//
+	{name: "MapValidatesValues___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range changeParent.MapValidatesValues {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "MapValidatesValues___child_validates_zero",
+		errorKeys: []string{"MapValidatesValues.[1].Validates", "MapValidatesValues.[2].Validates"}, f: func() parent {
+			changeParent := fullParent()
+			changeParent.MapValidatesValues["1"] = Child{}
+			changeParent.MapValidatesValues["2"] = Child{}
+			return changeParent
+		}},
+	{name: "MapValidatesValues___child_validates_one_zero", errorKeys: []string{"MapValidatesValues.[1].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapValidatesValues["1"] = Child{}
+		return changeParent
+	}},
+	{name: "MapValidatesValues___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapValidatesValues = map[string]Child{}
+		return changeParent
+	}},
+	{name: "MapValidatesValues___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapValidatesValues = nil
+		return changeParent
+	}},
+
+	//
+	// MapPtValidatesValues
+	//
+	{name: "MapPtValidatesValues___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range changeParent.MapPtValidatesValues {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "MapPtValidatesValues___child_validates_zero",
+		errorKeys: []string{"MapPtValidatesValues.[1].Validates", "MapPtValidatesValues.[2].Validates"}, f: func() parent {
+			changeParent := fullParent()
+			changeParent.MapPtValidatesValues["1"] = &Child{}
+			changeParent.MapPtValidatesValues["2"] = &Child{}
+			return changeParent
+		}},
+	{name: "MapPtValidatesValues___child_validates_one_zero", errorKeys: []string{"MapPtValidatesValues.[1].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesValues["1"] = &Child{}
+		return changeParent
+	}},
+	{name: "MapPtValidatesValues___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesValues = map[string]*Child{}
+		return changeParent
+	}},
+	{name: "MapPtValidatesValues___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesValues = nil
+		return changeParent
+	}},
+	{name: "MapPtValidatesValues___nil_element", errorKeys: []string{"MapPtValidatesValues.[1].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		// the empty child surfaces errors, while
+		// the nil element is silently skipped because SelfValidates is not called
+		// and the MapPtValidatesValues doesn't have any validations either
+		changeParent.MapPtValidatesValues = map[string]*Child{"1": {}, "2": nil}
+		return changeParent
+	}},
+
+	//
+	// PtMapValidatesValues
+	//
+	{name: "PtMapValidatesValues___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range *changeParent.PtMapValidatesValues {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "PtMapValidatesValues___child_validates_zero",
+		errorKeys: []string{"PtMapValidatesValues.[1].Validates", "PtMapValidatesValues.[2].Validates"}, f: func() parent {
+			changeParent := fullParent()
+			m := *changeParent.PtMapValidatesValues
+			m["1"] = Child{}
+			m["2"] = Child{}
+			changeParent.PtMapValidatesValues = &m
+			return changeParent
+		}},
+	{name: "PtMapValidatesValues___child_validates_one_zero", errorKeys: []string{"PtMapValidatesValues.[1].Validates"}, f: func() parent {
+		changeParent := fullParent()
+		m := *changeParent.PtMapValidatesValues
+		m["1"] = Child{}
+		changeParent.PtMapValidatesValues = &m
+		return changeParent
+	}},
+	{name: "PtMapValidatesValues___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.PtMapValidatesValues = &map[string]Child{}
+		return changeParent
+	}},
+	{name: "PtMapValidatesValues___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.PtMapValidatesValues = nil
+		return changeParent
+	}},
+
+	//
+	// MapValidatesKeys
+	//
+	{name: "MapValidatesKeys___key_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		// values are ignored
+		changeParent.MapValidatesKeys["1"] = Child{}
+		return changeParent
+	}},
+	{name: "MapValidatesKeys___key_zero", errorKeys: []string{"MapValidatesKeys.[]"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapValidatesKeys[""] = Child{}
+		delete(changeParent.MapValidatesKeys, "1")
+		return changeParent
+	}},
+	{name: "MapValidatesKeys___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapValidatesKeys = map[string]Child{}
+		return changeParent
+	}},
+	{name: "MapValidatesKeys___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapValidatesKeys = nil
+		return changeParent
+	}},
+
+	//
+	// MapPtValidatesKeys
+	//
+	{name: "MapPtValidatesKeys___key_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		// values are ignored
+		changeParent.MapPtValidatesKeys["1"] = nil
+		changeParent.MapPtValidatesKeys["2"] = nil
+		return changeParent
+	}},
+	{name: "MapPtValidatesKeys___key_zero", errorKeys: []string{"MapPtValidatesKeys.[]"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesKeys[""] = nil
+		delete(changeParent.MapPtValidatesKeys, "1")
+		return changeParent
+	}},
+	{name: "MapPtValidatesKeys___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesKeys = map[string]*Child{}
+		return changeParent
+	}},
+	{name: "MapPtValidatesKeys___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesKeys = nil
+		return changeParent
+	}},
+
+	//
+	// PtMapValidatesKeys
+	//
+	{name: "PtMapValidatesKeys___key_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		// values are ignored
+		m := *changeParent.PtMapValidatesKeys
+		m["1"] = Child{}
+		changeParent.PtMapValidatesKeys = &m
+		return changeParent
+	}},
+	{name: "PtMapValidatesKeys___key_zero", errorKeys: []string{"PtMapValidatesKeys.[]"}, f: func() parent {
+		changeParent := fullParent()
+		m := *changeParent.PtMapValidatesKeys
+		m[""] = Child{}
+		delete(m, "1")
+		changeParent.PtMapValidatesKeys = &m
+		return changeParent
+	}},
+	{name: "PtMapValidatesKeys___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.PtMapValidatesKeys = &map[string]Child{}
+		return changeParent
+	}},
+	{name: "PtMapValidatesKeys___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.PtMapValidatesKeys = nil
+		return changeParent
+	}},
+
+	//
+	// MapValidatesKeyValues
+	//
+	{name: "MapValidatesKeyValues___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range changeParent.MapValidatesKeyValues {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "MapValidatesKeyValues___child_validates_zero",
+		errorKeys: []string{"MapValidatesKeyValues.[1].Value.Validates", "MapValidatesKeyValues.[2].Value.Validates"}, f: func() parent {
+			changeParent := fullParent()
+			changeParent.MapValidatesKeyValues["1"] = Child{}
+			changeParent.MapValidatesKeyValues["2"] = Child{}
+			return changeParent
+		}},
+	{name: "MapValidatesKeyValues___child_validates_one_zero",
+		errorKeys: []string{"MapValidatesKeyValues.[1].Value.Validates"}, f: func() parent {
+			changeParent := fullParent()
+			changeParent.MapValidatesKeyValues["1"] = Child{}
+			return changeParent
+		}},
+	{name: "MapValidatesKeyValues___key_zero", errorKeys: []string{"MapValidatesKeyValues.[].Key"}, f: func() parent {
+		changeParent := fullParent()
+		// move a valid child under an empty key
+		changeParent.MapValidatesKeyValues[""] = changeParent.MapValidatesKeyValues["1"]
+		delete(changeParent.MapValidatesKeyValues, "1")
+		return changeParent
+	}},
+	{name: "MapValidatesKeyValues___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapValidatesKeyValues = map[string]Child{}
+		return changeParent
+	}},
+	{name: "MapValidatesKeyValues___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapValidatesKeyValues = nil
+		return changeParent
+	}},
+
+	//
+	// MapPtValidatesKeyValues
+	//
+	{name: "MapPtValidatesKeyValues___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range changeParent.MapPtValidatesKeyValues {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "MapPtValidatesKeyValues___child_validates_zero",
+		errorKeys: []string{"MapPtValidatesKeyValues.[1].Value.Validates", "MapPtValidatesKeyValues.[2].Value.Validates"}, f: func() parent {
+			changeParent := fullParent()
+			changeParent.MapPtValidatesKeyValues["1"] = &Child{}
+			changeParent.MapPtValidatesKeyValues["2"] = &Child{}
+			return changeParent
+		}},
+	{name: "MapPtValidatesKeyValues___child_validates_one_zero",
+		errorKeys: []string{"MapPtValidatesKeyValues.[1].Value.Validates"}, f: func() parent {
+			changeParent := fullParent()
+			changeParent.MapPtValidatesKeyValues["1"] = &Child{}
+			return changeParent
+		}},
+	{name: "MapPtValidatesKeyValues___key_zero", errorKeys: []string{"MapPtValidatesKeyValues.[].Key"}, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesKeyValues[""] = nil
+		delete(changeParent.MapPtValidatesKeyValues, "1")
+		return changeParent
+	}},
+	{name: "MapPtValidatesKeyValues___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesKeyValues = map[string]*Child{}
+		return changeParent
+	}},
+	{name: "MapPtValidatesKeyValues___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtValidatesKeyValues = nil
+		return changeParent
+	}},
+	{name: "MapPtValidatesKeyValues___nil_element", errorKeys: []string{"MapPtValidatesKeyValues.[1].Value.Validates"}, f: func() parent {
+		changeParent := fullParent()
+		// the empty child surfaces errors, while
+		// the nil element is silently skipped because SelfValidates is not called
+		// and the MapPtValidatesKeyValues doesn't have any validations either
+		changeParent.MapPtValidatesKeyValues = map[string]*Child{"1": {}, "2": nil}
+		return changeParent
+	}},
+
+	//
+	// PtMapValidatesKeyValues
+	//
+	{name: "PtMapValidatesKeyValues___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range *changeParent.PtMapValidatesKeyValues {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "PtMapValidatesKeyValues___child_validates_zero",
+		errorKeys: []string{"PtMapValidatesKeyValues.[1].Value.Validates", "PtMapValidatesKeyValues.[2].Value.Validates"}, f: func() parent {
+			changeParent := fullParent()
+			m := *changeParent.PtMapValidatesKeyValues
+			m["1"] = Child{}
+			m["2"] = Child{}
+			changeParent.PtMapValidatesKeyValues = &m
+			return changeParent
+		}},
+	{name: "PtMapValidatesKeyValues___child_validates_one_zero",
+		errorKeys: []string{"PtMapValidatesKeyValues.[1].Value.Validates"}, f: func() parent {
+			changeParent := fullParent()
+			m := *changeParent.PtMapValidatesKeyValues
+			m["1"] = Child{}
+			changeParent.PtMapValidatesKeyValues = &m
+			return changeParent
+		}},
+	{name: "PtMapValidatesKeyValues___key_zero", errorKeys: []string{"PtMapValidatesKeyValues.[].Key"}, f: func() parent {
+		changeParent := fullParent()
+		m := *changeParent.PtMapValidatesKeyValues
+		// move a valid child under an empty key
+		m[""] = m["1"]
+		delete(m, "1")
+		changeParent.PtMapValidatesKeyValues = &m
+		return changeParent
+	}},
+	{name: "PtMapValidatesKeyValues___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.PtMapValidatesKeyValues = &map[string]Child{}
+		return changeParent
+	}},
+	{name: "PtMapValidatesKeyValues___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.PtMapValidatesKeyValues = nil
+		return changeParent
+	}},
+
+	//
 	// PrimitiveNoValidates
 	//
 	{name: "PrimitiveNoValidates___zero", errorKeys: nil, f: func() parent {
@@ -496,6 +890,70 @@ var structValidatorTestCases = []structValidatorTestCase{
 	{name: "SlicePtNoValidates___nil", errorKeys: nil, f: func() parent {
 		changeParent := fullParent()
 		changeParent.SlicePtNoValidates = nil
+		return changeParent
+	}},
+
+	//
+	// MapNoValidates
+	//
+	{name: "MapNoValidates___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range changeParent.MapNoValidates {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "MapNoValidates___child_validates_zero", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapNoValidates["1"] = Child{}
+		changeParent.MapNoValidates["2"] = Child{}
+		return changeParent
+	}},
+	{name: "MapNoValidates___child_validates_one_zero", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapNoValidates["1"] = Child{}
+		return changeParent
+	}},
+	{name: "MapNoValidates___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapNoValidates = map[string]Child{}
+		return changeParent
+	}},
+	{name: "MapNoValidates___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapNoValidates = nil
+		return changeParent
+	}},
+
+	//
+	// MapPtNoValidates
+	//
+	{name: "MapPtNoValidates___child_validates_ok", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		for _, v := range changeParent.MapPtNoValidates {
+			v.NoValidates = ""
+		}
+		return changeParent
+	}},
+	{name: "MapPtNoValidates___child_validates_zero", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtNoValidates["1"] = &Child{}
+		changeParent.MapPtNoValidates["2"] = &Child{}
+		return changeParent
+	}},
+	{name: "MapPtNoValidates___child_validates_one_zero", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtNoValidates["1"] = &Child{}
+		return changeParent
+	}},
+	{name: "MapPtNoValidates___empty", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtNoValidates = map[string]*Child{}
+		return changeParent
+	}},
+	{name: "MapPtNoValidates___nil", errorKeys: nil, f: func() parent {
+		changeParent := fullParent()
+		changeParent.MapPtNoValidates = nil
 		return changeParent
 	}},
 }

@@ -16,6 +16,9 @@ type parent struct {
 	Array                   []Child
 	ArrayPt                 []*Child
 	PtArray                 *[]Child
+	Map                     map[string]Child
+	MapPt                   map[string]*Child
+	PtMap                   *map[string]Child
 	PrimitiveEmptyValidates int
 	BasicEmptyValidates     Child
 	PtEmptyValidates        *Child
@@ -23,6 +26,15 @@ type parent struct {
 	SliceValidates          []Child
 	SlicePtValidates        []*Child
 	PtSliceValidates        *[]Child
+	MapValidatesValues      map[string]Child
+	MapPtValidatesValues    map[string]*Child
+	PtMapValidatesValues    *map[string]Child
+	MapValidatesKeys        map[string]Child
+	MapPtValidatesKeys      map[string]*Child
+	PtMapValidatesKeys      *map[string]Child
+	MapValidatesKeyValues   map[string]Child
+	MapPtValidatesKeyValues map[string]*Child
+	PtMapValidatesKeyValues *map[string]Child
 	PrimitiveNoValidates    int
 	BasicNoValidates        Child
 	PtNoValidates           *Child
@@ -30,6 +42,9 @@ type parent struct {
 	SliceNoValidates        []Child
 	SlicePtNoValidates      []*Child
 	PtSliceNoValidates      *[]Child
+	MapNoValidates          map[string]Child
+	MapPtNoValidates        map[string]*Child
+	PtMapNoValidates        *map[string]Child
 }
 
 type Child struct {
@@ -47,12 +62,22 @@ func fullParent() parent {
 		// validate field + Child
 		Primitive: 1, Basic: *fc(), Pt: fc(), Any: *fc(),
 		Array: []Child{*fc(), *fc()}, ArrayPt: []*Child{fc(), fc()}, PtArray: &[]Child{*fc(), *fc()},
+		Map: map[string]Child{"1": *fc(), "2": *fc()}, MapPt: map[string]*Child{"1": fc(), "2": fc()},
+		PtMap: &map[string]Child{"1": *fc(), "2": *fc()},
 		// validate Child
 		PrimitiveEmptyValidates: 1, BasicEmptyValidates: *fc(), PtEmptyValidates: fc(), AnyEmptyValidates: *fc(),
 		SliceValidates: []Child{*fc(), *fc()}, SlicePtValidates: []*Child{fc(), fc()}, PtSliceValidates: &[]Child{*fc(), *fc()},
+		MapValidatesValues: map[string]Child{"1": *fc(), "2": *fc()}, MapPtValidatesValues: map[string]*Child{"1": fc(), "2": fc()},
+		PtMapValidatesValues: &map[string]Child{"1": *fc(), "2": *fc()},
+		MapValidatesKeys:     map[string]Child{"1": *fc(), "2": *fc()}, MapPtValidatesKeys: map[string]*Child{"1": fc(), "2": fc()},
+		PtMapValidatesKeys:    &map[string]Child{"1": *fc(), "2": *fc()},
+		MapValidatesKeyValues: map[string]Child{"1": *fc(), "2": *fc()}, MapPtValidatesKeyValues: map[string]*Child{"1": fc(), "2": fc()},
+		PtMapValidatesKeyValues: &map[string]Child{"1": *fc(), "2": *fc()},
 		// validate none
 		PrimitiveNoValidates: 1, BasicNoValidates: *fc(), PtNoValidates: fc(), AnyNoValidates: *fc(),
 		SliceNoValidates: []Child{*fc(), *fc()}, SlicePtNoValidates: []*Child{fc(), fc()}, PtSliceNoValidates: &[]Child{*fc(), *fc()},
+		MapNoValidates: map[string]Child{"1": *fc(), "2": *fc()}, MapPtNoValidates: map[string]*Child{"1": fc(), "2": fc()},
+		PtMapNoValidates: &map[string]Child{"1": *fc(), "2": *fc()},
 	}
 }
 
@@ -65,6 +90,12 @@ type unregistered struct{}
 
 var testRegistry = &Registry{}
 
+// validates each KeyValue entry's Key (present) and Value (registered Child)
+var (
+	keyValuesEntryRule      = Fields[KeyValue[string, Child]](RuleMap{"Key": {presentRule{}}, "Value": {testRegistry.Backed()}})
+	mapPtKeyValuesEntryRule = Fields[KeyValue[string, *Child]](RuleMap{"Key": {presentRule{}}, "Value": {testRegistry.Backed()}})
+)
+
 func init() {
 	testRegistry.MustRegisterType(NewDefinition[parent]().Validates(RuleMap{
 		"Child":     {presentRule{}, testRegistry.Backed()},
@@ -75,6 +106,9 @@ func init() {
 		"Array":     {presentRule{}, Elems[[]Child](testRegistry.Backed())},
 		"ArrayPt":   {presentRule{}, Elems[[]*Child](testRegistry.Backed())},
 		"PtArray":   {presentRule{}, Elems[[]Child](testRegistry.Backed())},
+		"Map":       {presentRule{}, Values[map[string]Child](testRegistry.Backed())},
+		"MapPt":     {presentRule{}, Values[map[string]*Child](testRegistry.Backed())},
+		"PtMap":     {presentRule{}, Values[map[string]Child](testRegistry.Backed())},
 
 		"PrimitiveEmptyValidates": {},
 		"BasicEmptyValidates":     {testRegistry.Backed()},
@@ -83,6 +117,15 @@ func init() {
 		"SliceValidates":          {Elems[[]Child](testRegistry.Backed())},
 		"SlicePtValidates":        {Elems[[]*Child](testRegistry.Backed())},
 		"PtSliceValidates":        {Elems[[]Child](testRegistry.Backed())},
+		"MapValidatesValues":      {Values[map[string]Child](testRegistry.Backed())},
+		"MapPtValidatesValues":    {Values[map[string]*Child](testRegistry.Backed())},
+		"PtMapValidatesValues":    {Values[map[string]Child](testRegistry.Backed())},
+		"MapValidatesKeys":        {Keys[map[string]Child](presentRule{})},
+		"MapPtValidatesKeys":      {Keys[map[string]*Child](presentRule{})},
+		"PtMapValidatesKeys":      {Keys[map[string]Child](presentRule{})},
+		"MapValidatesKeyValues":   {KeyValues[map[string]Child](keyValuesEntryRule)},
+		"MapPtValidatesKeyValues": {KeyValues[map[string]*Child](mapPtKeyValuesEntryRule)},
+		"PtMapValidatesKeyValues": {KeyValues[map[string]Child](keyValuesEntryRule)},
 	}))
 	testRegistry.MustRegisterType(NewDefinition[Child]().Validates(RuleMap{
 		"Validates": {presentRule{}},
