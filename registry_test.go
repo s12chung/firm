@@ -279,3 +279,131 @@ func TestRegistryBacker(t *testing.T) {
 	// unstamped backers have no type, so they fall back to the DefaultValidator's NotFound error
 	require.Equal(notFoundError(registryParent{}), registry.Backed().ValidateAny(registryParent{}))
 }
+
+func TestRegistryBacker_SelfRecursion(t *testing.T) {
+	require := require.New(t)
+
+	registry := &Registry{}
+	selfRecursionErr := "RegisterType() with type firm.registryChild: " +
+		"Registry: self recursion with RegistryBacker.Registry pointing to RegisterType()'s Registry"
+
+	// recursive, so reject
+	require.EqualError(registry.RegisterType(NewDefinition[registryChild]().ValidatesSelf(registry.Backed())), selfRecursionErr)
+
+	// a different Registry terminates, so allow
+	otherRegistry := &Registry{}
+	require.NoError(registry.RegisterType(NewDefinition[registryChild]().ValidatesSelf(otherRegistry.Backed())))
+}
+
+// nolint:funlen // a bunch of test cases
+func TestRegistryBacker_Stamping(t *testing.T) {
+	registry := &Registry{}
+	require.NoError(t, registry.RegisterType(NewDefinition[registryChild]().ValidatesSelf(presentRule{})))
+	// KeyValuesAnyWithErr stamps entries as an anonymous KeyValue struct, so it is
+	// registered by the anonymous type
+	require.NoError(t, registry.RegisterType(NewDefinition[struct {
+		Key   registryChild
+		Value registryChild
+	}]().ValidatesSelf(presentRule{})))
+
+	childBacker := []Rule{RegistryBacker{Registry: registry, typ: reflect.TypeFor[registryChild]()}}
+	keyValueBacker := []Rule{RegistryBacker{Registry: registry, typ: reflect.StructOf([]reflect.StructField{
+		{Name: "Key", Type: reflect.TypeFor[registryChild]()},
+		{Name: "Value", Type: reflect.TypeFor[registryChild]()},
+	})}}
+
+	tcs := []struct {
+		name string
+		// the Validator and the rules holding the backer, per constructor
+		newValidator  func() (Validator, []Rule, error)
+		expectedRules []Rule
+		data          any
+		keySuffixes   []string
+	}{
+		{name: "fields", data: registryParent{}, keySuffixes: []string{joinKeys("Child", presentRuleKey)},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := FieldsAnyWithErr(reflect.TypeFor[registryParent](), RuleMap{"Child": {registry.Backed()}})
+				return v, *v.ruleMap["Child"], err
+			}},
+		{name: "fields_ptr", data: registryParent{}, keySuffixes: []string{joinKeys("Child", presentRuleKey)},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := FieldsAnyWithErr(reflect.TypeFor[*registryParent](), RuleMap{"Child": {registry.Backed()}})
+				return v, *v.ruleMap["Child"], err
+			}},
+		{name: "elems", data: []registryChild{{}}, keySuffixes: []string{joinKeys("[0]", presentRuleKey)},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := ElemsAnyWithErr(reflect.TypeFor[[]registryChild](), registry.Backed())
+				return v, v.elementRules, err
+			}},
+		{name: "elems_ptr", data: []registryChild{{}}, keySuffixes: []string{joinKeys("[0]", presentRuleKey)},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := ElemsAnyWithErr(reflect.TypeFor[*[]registryChild](), registry.Backed())
+				return v, v.elementRules, err
+			}},
+		{name: "value", data: registryChild{}, keySuffixes: []string{presentRuleKey},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := ValueAnyWithErr(reflect.TypeFor[registryChild](), registry.Backed())
+				return v, v.rules, err
+			}},
+		{name: "value_ptr", data: registryChild{}, keySuffixes: []string{presentRuleKey},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := ValueAnyWithErr(reflect.TypeFor[*registryChild](), registry.Backed())
+				return v, v.rules, err
+			}},
+		{name: "keys", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}]", presentRuleKey)},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := KeysAnyWithErr(reflect.TypeFor[map[registryChild]registryChild](), registry.Backed())
+				return v, v.keyRules, err
+			}},
+		{name: "keys_ptr", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}]", presentRuleKey)},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := KeysAnyWithErr(reflect.TypeFor[*map[registryChild]registryChild](), registry.Backed())
+				return v, v.keyRules, err
+			}},
+		{name: "values", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}]", presentRuleKey)},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := ValuesAnyWithErr(reflect.TypeFor[map[registryChild]registryChild](), registry.Backed())
+				return v, v.valueRules, err
+			}},
+		{name: "values_ptr", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}]", presentRuleKey)},
+			expectedRules: childBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := ValuesAnyWithErr(reflect.TypeFor[*map[registryChild]registryChild](), registry.Backed())
+				return v, v.valueRules, err
+			}},
+		{name: "key_values", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}]", presentRuleKey)},
+			expectedRules: keyValueBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := KeyValuesAnyWithErr(reflect.TypeFor[map[registryChild]registryChild](), registry.Backed())
+				return v, v.entryRules, err
+			}},
+		{name: "key_values_ptr", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}]", presentRuleKey)},
+			expectedRules: keyValueBacker,
+			newValidator: func() (Validator, []Rule, error) {
+				v, err := KeyValuesAnyWithErr(reflect.TypeFor[*map[registryChild]registryChild](), registry.Backed())
+				return v, v.entryRules, err
+			}},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
+
+			validator, rules, err := tc.newValidator()
+			require.NoError(err)
+			require.Equal(tc.expectedRules, rules)
+
+			// the stamped backer resolves through the Registry at validation time
+			testValidateAll(t, validator, tc.data, presentRuleError(""), tc.keySuffixes...)
+		})
+	}
+}

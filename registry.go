@@ -1,6 +1,7 @@
 package firm
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 )
@@ -33,18 +34,31 @@ func (r *Registry) RegisterType(definition *Definition) error {
 		return fmt.Errorf("RegisterType() with type %v already exists", typ.String())
 	}
 
-	r.typeToValidator[typ] = r.toValidator(definition)
+	validator, err := r.toValidator(definition)
+	if err != nil {
+		return fmt.Errorf("RegisterType() with type %v: %w", typ.String(), err)
+	}
+	r.typeToValidator[typ] = validator
 	return nil
 }
 
-func (r *Registry) toValidator(definition *Definition) *ValueAnyVldr {
+func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 	typ := definition.Type()
 	selfRules := definition.SelfRules()
+	for _, rule := range selfRules {
+		// Do not self-recurse via RegistryBacker
+		if backer, ok := rule.(RegistryBacker); ok && backer.Registry == r {
+			return nil, errors.New("Registry: self recursion with RegistryBacker.Registry pointing to RegisterType()'s Registry")
+		}
+	}
 	if len(definition.RuleMap()) > 0 {
 		selfRules = append(selfRules, mustNewValidator(func() (FieldsAnyVldr, error) { return FieldsAnyWithErr(definition.typ, definition.RuleMap()) }))
 	}
-	v := mustNewValidator(func() (ValueAnyVldr, error) { return ValueAnyWithErr(typ, selfRules...) })
-	return &v
+	v, err := ValueAnyWithErr(typ, selfRules...)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
 }
 
 // nilType stands-in for nil values--it is private, so it can't be registered outside of this package

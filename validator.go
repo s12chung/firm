@@ -197,6 +197,7 @@ func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 		return ValueAnyVldr{}, errors.New("Value: type is nil, not recommended")
 	}
 	typ = indirectType(typ)
+	rules = stampRegistryBackers(rules, typ)
 
 	for _, rule := range rules {
 		if err := rule.TypeCheck(typ); err != nil {
