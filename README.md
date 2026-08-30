@@ -44,6 +44,8 @@ func init() {
 			//
 			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}})`
 			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
+			//
+			// `firm.Backed()` will NOT be applied to `nil` pointers
 			Validates(firm.RuleMap{
 				"Queries": {firm.Elems[[]Query](firm.Backed())},
 			}),
@@ -332,6 +334,8 @@ firm.MustRegisterType(
 		//
 		// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}})`
 		// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
+		//
+		// `firm.Backed()` will NOT be applied to `nil` pointers
 		Validates(firm.RuleMap{
 			"Queries": {firm.Elems[[]Query](firm.Backed())},
 		}),
@@ -352,7 +356,7 @@ In detail, `firm.Registry` can't infer the type from `nil` when `ValidateAny(nil
 2. Given the type, `firm.RegistryBacker` always has access to `Config.Queries`'s validator
 3. So `Config.Queries`'s rules are applied to that field's elements (`Query` structs)
 
-Other constructors of build-in recursive validators (`Elems()`, `Keys()`, `Values()`, `KeyValues()`) also do Step 1 above.
+Other constructors of built-in recursive validators (`Elems()`, `Keys()`, `Values()`, `KeyValues()`) also do Step 1 above. `firm.RegistryBacker` must be passed in they recursion validators **directly**.
 
 ### Slices and Arrays
 

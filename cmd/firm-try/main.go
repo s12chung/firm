@@ -42,6 +42,8 @@ func init() {
 			//
 			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}})`
 			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
+			//
+			// `firm.Backed()` will NOT be applied to `nil` pointers
 			Validates(firm.RuleMap{
 				"Queries": {firm.Elems[[]Query](firm.Backed())},
 			}),

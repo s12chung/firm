@@ -305,6 +305,7 @@ func safeValidateMergeValue(value reflect.Value) reflect.Value {
 	}
 	return indirect(value)
 }
+
 func validateMerge(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
 	for _, rule := range rules {
 		rule.ValidateValue(value).MergeInto(key, errorMap)

@@ -138,9 +138,6 @@ func (b RegistryBacker) ValidateAny(data any) ErrorMap {
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
 func (b RegistryBacker) ValidateValue(value reflect.Value) ErrorMap {
-	if !value.IsValid() {
-		return nil
-	}
 	errorMap := ErrorMap{}
 	b.ValidateMerge(value, "", errorMap)
 	return errorMap.ToNil()
