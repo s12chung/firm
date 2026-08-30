@@ -1,7 +1,6 @@
 package firm
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 )
@@ -25,7 +24,7 @@ func KeysAny(typ reflect.Type, keyRules ...Rule) KeysAnyVldr {
 
 // KeysAnyWithErr returns the KeysVldr validator without generics. Pointer types are indirected to their value type
 func KeysAnyWithErr(typ reflect.Type, keyRules ...Rule) (KeysAnyVldr, error) {
-	typ, err := mapType("Keys", typ)
+	typ, err := typeOfKind("Keys", typ, reflect.Map)
 	if err != nil {
 		return KeysAnyVldr{}, err
 	}
@@ -97,7 +96,7 @@ func ValuesAny(typ reflect.Type, valueRules ...Rule) ValuesAnyVldr {
 
 // ValuesAnyWithErr returns the ValuesVldr validator without generics. Pointer types are indirected to their value type
 func ValuesAnyWithErr(typ reflect.Type, valueRules ...Rule) (ValuesAnyVldr, error) {
-	typ, err := mapType("Values", typ)
+	typ, err := typeOfKind("Values", typ, reflect.Map)
 	if err != nil {
 		return ValuesAnyVldr{}, err
 	}
@@ -169,7 +168,7 @@ func KeyValuesAny(typ reflect.Type, keyValueRules ...Rule) KeyValuesAnyVldr {
 
 // KeyValuesAnyWithErr returns the KeyValuesVldr validator without generics. Pointer types are indirected to their value type
 func KeyValuesAnyWithErr(typ reflect.Type, keyValueRules ...Rule) (KeyValuesAnyVldr, error) {
-	typ, err := mapType("KeyValues", typ)
+	typ, err := typeOfKind("KeyValues", typ, reflect.Map)
 	if err != nil {
 		return KeyValuesAnyVldr{}, err
 	}
@@ -223,18 +222,6 @@ func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 
 // KeyValueRules returns the rules for each key-value pair in the Map
 func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return s.keyValueRules }
-
-// mapType returns the indirected type, ensuring the type is a Map
-func mapType(vdlrClass string, typ reflect.Type) (reflect.Type, error) {
-	if typ == nil {
-		return nil, errors.New(vdlrClass + ": type, nil, is not a Map")
-	}
-	typ = indirectType(typ)
-	if typ.Kind() != reflect.Map {
-		return nil, fmt.Errorf("%s: type, %v, is not a Map", vdlrClass, typ.String())
-	}
-	return typ, nil
-}
 
 // mapErrorKey returns the error path key of a map key, e.g. [key], mirroring a slice's [i].
 // Pointer keys are indirected, as addresses are unstable across runs and unreadable

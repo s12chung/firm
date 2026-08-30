@@ -280,7 +280,7 @@ The `firm` package provides:
 
 | Constructor | Intent |
 | --- | --- |
-| `firm.Fields[T](ruleMap)` | validates structs, mapping fields to rules via `firm.RuleMap`. returns `firm.FieldsVldr[T]` |
+| `firm.Fields[T](ruleMap)` | validates structs, mapping fields to rules via `firm.RuleMap`. fields must be exported. returns `firm.FieldsVldr[T]` |
 | `FieldsAny(type, ruleMap)` | same as above. returns `firm.FieldsAnyVldr` |
 | `firm.Elems[[]T](rules...)` | slices and arrays, running rules on all elements. returns `firm.ElemsVldr[[]T]` |
 | `ElemsAny(type, rules...)` | same as above. returns `firm.ElemsAnyVldr` |
@@ -360,7 +360,7 @@ Other constructors of built-in recursive validators (`Elems()`, `Keys()`, `Value
 
 ### Slices and Arrays
 
-`Elems[[]T]()` returns `firm.ElemsVldr[[]T]`, which applies it's rules into each element of a slice or array:
+`Elems[[]T]()` returns `firm.ElemsVldr[[]T]`, which applies its rules into each element of a slice or array:
 
 ```go
 // For each element (`firm.Elems()`),
@@ -390,7 +390,7 @@ For arrays, the generic constraint is too narrow (`T []U` is slices-only)--use t
 
 ### Maps
 
-`Keys[map[K]V]()/Values[map[K]V]()/KeyValues[map[K]V]()` return `firm.KeysVldr/ValuesVldr/KeyValuesVldr`, which applies it's rules into each key, value, key-value pair of a map:
+`Keys[map[K]V]()/Values[map[K]V]()/KeyValues[map[K]V]()` return `firm.KeysVldr/ValuesVldr/KeyValuesVldr`, which applies its rules into each key, value, key-value pair of a map:
 
 ```go
 // For each value (`firm.Values()`),

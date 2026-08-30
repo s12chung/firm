@@ -26,12 +26,9 @@ func FieldsAny(typ reflect.Type, ruleMap RuleMap) FieldsAnyVldr {
 
 // FieldsAnyWithErr returns a new FieldsAnyVldr. Pointer types are indirected to their value type
 func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) {
-	if typ == nil {
-		return FieldsAnyVldr{}, errors.New("Fields: type, nil, is not a Struct")
-	}
-	typ = indirectType(typ)
-	if typ.Kind() != reflect.Struct {
-		return FieldsAnyVldr{}, fmt.Errorf("Fields: type, %v, is not a Struct", typ.String())
+	typ, err := typeOfKind("Fields", typ, reflect.Struct)
+	if err != nil {
+		return FieldsAnyVldr{}, err
 	}
 
 	rm := map[string]*[]Rule{}
@@ -39,6 +36,9 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 		field, found := typ.FieldByName(fieldName)
 		if !found {
 			return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, not found in type: %v", fieldName, typ.String())
+		}
+		if !field.IsExported() {
+			return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, is unexported in type: %v", fieldName, typ.String())
 		}
 		for _, rule := range rules {
 			if err := rule.TypeCheck(indirectType(field.Type)); err != nil {
@@ -118,12 +118,9 @@ func ElemsAny(typ reflect.Type, elementRules ...Rule) ElemsAnyVldr {
 
 // ElemsAnyWithErr returns the ElemsVldr validator without generics. Pointer types are indirected to their value type
 func ElemsAnyWithErr(typ reflect.Type, elementRules ...Rule) (ElemsAnyVldr, error) {
-	if typ == nil {
-		return ElemsAnyVldr{}, errors.New("Elems: type, nil, is not a Slice or Array")
-	}
-	typ = indirectType(typ)
-	if typ.Kind() != reflect.Slice && typ.Kind() != reflect.Array {
-		return ElemsAnyVldr{}, fmt.Errorf("Elems: type, %v, is not a Slice or Array", typ.String())
+	typ, err := typeOfKind("Elems", typ, reflect.Slice, reflect.Array)
+	if err != nil {
+		return ElemsAnyVldr{}, err
 	}
 
 	for _, rule := range elementRules {

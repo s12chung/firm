@@ -1,6 +1,12 @@
 package firm
 
-import "reflect"
+import (
+	"errors"
+	"fmt"
+	"reflect"
+	"slices"
+	"strings"
+)
 
 func indirect(value reflect.Value) reflect.Value {
 	for value.Kind() == reflect.Pointer {
@@ -14,6 +20,25 @@ func indirectType(typ reflect.Type) reflect.Type {
 		typ = typ.Elem()
 	}
 	return typ
+}
+
+// typeOfKind returns the indirected type, ensuring the type is one of the kinds
+func typeOfKind(vdlrClass string, typ reflect.Type, kinds ...reflect.Kind) (reflect.Type, error) {
+	kindNames := make([]string, len(kinds))
+	for i, kind := range kinds {
+		name := kind.String()
+		kindNames[i] = strings.ToUpper(name[:1]) + name[1:]
+	}
+	kindNamesForErr := strings.Join(kindNames, " or ")
+
+	if typ == nil {
+		return nil, errors.New(vdlrClass + ": type, nil, is not a " + kindNamesForErr)
+	}
+	typ = indirectType(typ)
+	if !slices.Contains(kinds, typ.Kind()) {
+		return nil, fmt.Errorf("%s: type, %v, is not a %s", vdlrClass, typ.String(), kindNamesForErr)
+	}
+	return typ, nil
 }
 
 const keySeparator = "."

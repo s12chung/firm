@@ -39,9 +39,12 @@ func (s *Definition) Validates(ruleMap RuleMap) *Definition {
 		panic(fmt.Sprintf("Validates() called twice in type: %v", s.typ.String()))
 	}
 	for fieldName := range ruleMap {
-		_, exists := s.typ.FieldByName(fieldName)
+		field, exists := s.typ.FieldByName(fieldName)
 		if !exists {
 			panic(fmt.Sprintf("Validates() called with fieldName, %v, not in type: %v", fieldName, s.typ.String()))
+		}
+		if !field.IsExported() {
+			panic(fmt.Sprintf("Validates() called with fieldName, %v, unexported in type: %v", fieldName, s.typ.String()))
 		}
 	}
 	s.ruleMap = ruleMap

@@ -1,6 +1,7 @@
 package firm_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -33,22 +34,27 @@ func errorMap(field, name firm.ErrorKey, template string) firm.ErrorMap {
 
 func TestFieldsWithErrPkg(t *testing.T) {
 	tcs := []struct {
-		name    string
-		ruleMap firm.RuleMap
-		failErr error
+		name           string
+		ruleMap        firm.RuleMap
+		failErr        error
+		constructorErr error
 	}{
 		{name: "exported_field", ruleMap: firm.RuleMap{"Public": {rule.TrimPresent{}}},
 			failErr: errorMap("Public", "", "")},
 		{name: "non_exported_field", ruleMap: firm.RuleMap{"private": {rule.TrimPresent{}}},
-			failErr: errorMap("private", "", "")},
+			constructorErr: errors.New("Fields: field, private, is unexported in type: firm_test.nonExport")},
 		{name: "non_exported_child", ruleMap: firm.RuleMap{"privateChild": {rule.Present{}}},
-			failErr: errorMap("privateChild", "Present", "is not present")},
+			constructorErr: errors.New("Fields: field, privateChild, is unexported in type: firm_test.nonExport")},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			require := require.New(t)
 
 			validator, err := firm.FieldsWithErr[nonExport](tc.ruleMap)
+			if tc.constructorErr != nil {
+				require.Equal(tc.constructorErr, err)
+				return
+			}
 			require.NoError(err)
 			require.Nil(validator.ValidateAny(notEmpty))
 			require.Equal(tc.failErr, validator.ValidateAny(nonExport{}))
