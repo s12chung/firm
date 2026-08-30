@@ -150,58 +150,39 @@ func (s ValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // ValueRules returns the rules for each value in the Map
 func (s ValuesAnyVldr) ValueRules() []Rule { return s.valueRules }
 
-// KeyValue represents a key/value-pair of a map to validate
-type KeyValue[K comparable, V any] struct {
-	Key   K
-	Value V
-}
-
 // KeyValues returns a new KeyValuesVldr, panics if there is an error
-func KeyValues[T map[K]V, K comparable, V any](entryRules ...Rule) KeyValuesVldr[T, K, V] {
-	return mustNewValidator(func() (KeyValuesVldr[T, K, V], error) { return KeyValuesWithErr[T, K, V](entryRules...) })
+func KeyValues[T map[K]V, K comparable, V any](keyValueRules ...Rule) KeyValuesVldr[T, K, V] {
+	return mustNewValidator(func() (KeyValuesVldr[T, K, V], error) { return KeyValuesWithErr[T, K, V](keyValueRules...) })
 }
 
 // KeyValuesWithErr returns a new KeyValuesVldr
-func KeyValuesWithErr[T map[K]V, K comparable, V any](entryRules ...Rule) (KeyValuesVldr[T, K, V], error) {
+func KeyValuesWithErr[T map[K]V, K comparable, V any](keyValueRules ...Rule) (KeyValuesVldr[T, K, V], error) {
 	var zero T
-	// Not calling KeyValuesAnyWithErr instead due to anonymous KeyValue struct instead of named type
-	kvAnyV, err := keyValuesAnyWithErr(reflect.TypeOf(zero), reflect.TypeFor[KeyValue[K, V]](), entryRules...)
+	kvAnyV, err := KeyValuesAnyWithErr(reflect.TypeOf(zero), keyValueRules...)
 	return KeyValuesVldr[T, K, V]{KeyValuesAnyVldr: kvAnyV}, err
 }
 
 // KeyValuesAny returns a new KeyValuesAnyVldr, panics if there is an error
-func KeyValuesAny(typ reflect.Type, entryRules ...Rule) KeyValuesAnyVldr {
-	return mustNewValidator(func() (KeyValuesAnyVldr, error) { return KeyValuesAnyWithErr(typ, entryRules...) })
+func KeyValuesAny(typ reflect.Type, keyValueRules ...Rule) KeyValuesAnyVldr {
+	return mustNewValidator(func() (KeyValuesAnyVldr, error) { return KeyValuesAnyWithErr(typ, keyValueRules...) })
 }
 
-// KeyValuesAnyWithErr returns the KeyValuesVldr validator without generics. Pointer types are indirected to their value type.
-func KeyValuesAnyWithErr(typ reflect.Type, entryRules ...Rule) (KeyValuesAnyVldr, error) {
+// KeyValuesAnyWithErr returns the KeyValuesVldr validator without generics. Pointer types are indirected to their value type
+func KeyValuesAnyWithErr(typ reflect.Type, keyValueRules ...Rule) (KeyValuesAnyVldr, error) {
 	typ, err := mapType("KeyValues", typ)
 	if err != nil {
 		return KeyValuesAnyVldr{}, err
 	}
 
-	// use anonymous KeyValue struct, struct { Key K; Value V },
-	// since generic type can't be structed via reflection
-	// declined: golang/go#45591 — proposal: spec: generics: Anonymous generic aggregate types
-	// declined: golang/go#54393 — proposal: reflect: add generic type arg info to reflect.Type
-	keyValueType := reflect.StructOf([]reflect.StructField{
-		{Name: "Key", Type: typ.Key()},
-		{Name: "Value", Type: typ.Elem()},
-	})
-	return keyValuesAnyWithErr(typ, keyValueType, entryRules...)
-}
-
-func keyValuesAnyWithErr(typ, keyValueType reflect.Type, entryRules ...Rule) (KeyValuesAnyVldr, error) {
-	for _, rule := range entryRules {
-		if err := rule.TypeCheck(keyValueType); err != nil {
-			return KeyValuesAnyVldr{}, fmt.Errorf("KeyValues: entry type: %w", err)
+	for _, rule := range keyValueRules {
+		if err := rule.TypeCheck(typ); err != nil {
+			return KeyValuesAnyVldr{}, fmt.Errorf("KeyValues: key-value pair type: %w", err)
 		}
 	}
-	return KeyValuesAnyVldr{typ: typ, keyValueType: keyValueType, entryRules: stampRegistryBackers(entryRules, keyValueType)}, nil
+	return KeyValuesAnyVldr{typ: typ, keyValueRules: stampRegistryBackers(keyValueRules, typ)}, nil
 }
 
-// KeyValuesVldr validates map entries, passing each entry as a KeyValue to validate
+// KeyValuesVldr validates map key-value pairs, passing each key-value pair down as a Map with only 1 key-value pair to validate
 type KeyValuesVldr[T map[K]V, K comparable, V any] struct{ KeyValuesAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
@@ -209,9 +190,8 @@ func (s KeyValuesVldr[T, K, V]) Validate(data T) ErrorMap { return validate(s, d
 
 // KeyValuesAnyVldr is a KeyValuesVldr without generics
 type KeyValuesAnyVldr struct {
-	typ          reflect.Type
-	keyValueType reflect.Type
-	entryRules   []Rule
+	typ           reflect.Type
+	keyValueRules []Rule
 }
 
 // Type returns the Type the Validator handles
@@ -229,10 +209,10 @@ func (s KeyValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMa
 		return
 	}
 	for iter := value.MapRange(); iter.Next(); {
-		kv := reflect.New(s.keyValueType).Elem()
-		kv.FieldByName("Key").Set(iter.Key())
-		kv.FieldByName("Value").Set(iter.Value())
-		validateMerge(kv, joinKeys(key, mapErrorKey(iter.Key())), errorMap, s.entryRules)
+		// passed down as a Map with only 1 key-value pair
+		keyValue := reflect.MakeMapWithSize(s.typ, 1)
+		keyValue.SetMapIndex(iter.Key(), iter.Value())
+		validateMerge(keyValue, joinKeys(key, mapErrorKey(iter.Key())), errorMap, s.keyValueRules)
 	}
 }
 
@@ -241,11 +221,8 @@ func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 	return TypeCheck("KeyValuesAnyVldr", typ, s.typ, "Map")
 }
 
-// KeyValueRules returns the rules for each entry in the Map
-func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return s.entryRules }
-
-// KeyValueType returns the KeyValue type each entry in the Map is validated as
-func (s KeyValuesAnyVldr) KeyValueType() reflect.Type { return s.keyValueType }
+// KeyValueRules returns the rules for each key-value pair in the Map
+func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return s.keyValueRules }
 
 // mapType returns the indirected type, ensuring the type is a Map
 func mapType(vdlrClass string, typ reflect.Type) (reflect.Type, error) {

@@ -90,10 +90,10 @@ type unregistered struct{}
 
 var testRegistry = &Registry{}
 
-// validates each KeyValue entry's Key (present) and Value (registered Child)
+// validates each key-value pair's Key (present) and Value (registered Child)
 var (
-	keyValuesEntryRule      = Fields[KeyValue[string, Child]](RuleMap{"Key": {presentRule{}}, "Value": {testRegistry.Backed()}})
-	mapPtKeyValuesEntryRule = Fields[KeyValue[string, *Child]](RuleMap{"Key": {presentRule{}}, "Value": {testRegistry.Backed()}})
+	childKeyValueRule   = newKeyValueRule[string, Child]([]Rule{presentRule{}}, []Rule{testRegistry.Backed()})
+	childPtKeyValueRule = newKeyValueRule[string, *Child]([]Rule{presentRule{}}, []Rule{testRegistry.Backed()})
 )
 
 func init() {
@@ -123,9 +123,9 @@ func init() {
 		"MapValidatesKeys":        {Keys[map[string]Child](presentRule{})},
 		"MapPtValidatesKeys":      {Keys[map[string]*Child](presentRule{})},
 		"PtMapValidatesKeys":      {Keys[map[string]Child](presentRule{})},
-		"MapValidatesKeyValues":   {KeyValues[map[string]Child](keyValuesEntryRule)},
-		"MapPtValidatesKeyValues": {KeyValues[map[string]*Child](mapPtKeyValuesEntryRule)},
-		"PtMapValidatesKeyValues": {KeyValues[map[string]Child](keyValuesEntryRule)},
+		"MapValidatesKeyValues":   {KeyValues[map[string]Child](childKeyValueRule)},
+		"MapPtValidatesKeyValues": {KeyValues[map[string]*Child](childPtKeyValueRule)},
+		"PtMapValidatesKeyValues": {KeyValues[map[string]Child](childKeyValueRule)},
 	}))
 	testRegistry.MustRegisterType(NewDefinition[Child]().Validates(RuleMap{
 		"Validates": {presentRule{}},

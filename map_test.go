@@ -214,70 +214,59 @@ func TestValuesAnyVldr_TypeCheck(t *testing.T) {
 // KeyValues
 //
 
-var keyValuesValidator = KeyValues[map[int]sliceValidatorElement](Fields[KeyValue[int, sliceValidatorElement]](RuleMap{
-	"Key":   {presentRule{}},
-	"Value": {presentRule{}, Fields[sliceValidatorElement](RuleMap{"Int": {presentRule{}}})},
-}))
+type keyValueRule[K comparable, V any] struct {
+	keyRules   []Rule
+	valueRules []Rule
+}
 
-var ptrKeyValuesValidator = KeyValues[map[string]*sliceValidatorElement](Fields[KeyValue[string, *sliceValidatorElement]](RuleMap{
-	"Value": {presentRule{}},
-}))
+func newKeyValueRule[K comparable, V any](keyRules, valueRules []Rule) keyValueRule[K, V] {
+	return keyValueRule[K, V]{
+		keyRules:   stampRegistryBackers(keyRules, reflect.TypeFor[K]()),
+		valueRules: stampRegistryBackers(valueRules, reflect.TypeFor[V]()),
+	}
+}
+
+func (e keyValueRule[K, V]) ValidateValue(value reflect.Value) ErrorMap {
+	errorMap := ErrorMap{}
+	for iter := value.MapRange(); iter.Next(); {
+		validateMerge(indirect(iter.Key()), "Key", errorMap, e.keyRules)
+		validateMerge(indirect(iter.Value()), "Value", errorMap, e.valueRules)
+	}
+	return errorMap.ToNil()
+}
+
+func (e keyValueRule[K, V]) TypeCheck(typ reflect.Type) *RuleTypeError {
+	return TypeCheck("keyValueRule", typ, reflect.TypeFor[map[K]V](), "Map")
+}
+
+var keyValuesValidator = KeyValues[map[int]sliceValidatorElement](newKeyValueRule[int, sliceValidatorElement](
+	[]Rule{presentRule{}},
+	[]Rule{presentRule{}, Fields[sliceValidatorElement](RuleMap{"Int": {presentRule{}}})},
+))
+
+var ptrKeyValuesValidator = KeyValues[map[string]*sliceValidatorElement](newKeyValueRule[string, *sliceValidatorElement](
+	nil,
+	[]Rule{presentRule{}},
+))
 
 func TestKeyValuesAny(t *testing.T) {
 	typ := reflect.TypeFor[map[string]Child]()
-	expected, err := KeyValuesAnyWithErr(typ, onlyKindRule{kind: reflect.Struct})
+	expected, err := KeyValuesAnyWithErr(typ, onlyKindRule{kind: reflect.Map})
 	require.NoError(t, err)
-	require.Equal(t, expected, KeyValuesAny(typ, onlyKindRule{kind: reflect.Struct}))
-	require.Equal(t, expected, KeyValuesAny(reflect.TypeFor[*map[string]Child](), onlyKindRule{kind: reflect.Struct}))
+	require.Equal(t, expected, KeyValuesAny(typ, onlyKindRule{kind: reflect.Map}))
+	require.Equal(t, expected, KeyValuesAny(reflect.TypeFor[*map[string]Child](), onlyKindRule{kind: reflect.Map}))
 
-	require.Panics(t, func() { KeyValuesAny(reflect.TypeFor[Child](), onlyKindRule{kind: reflect.Struct}) })
-}
-
-func TestKeyValuesWithErr(t *testing.T) {
-	noMatchingRule := onlyKindRule{kind: reflect.Int}
-	namedType := reflect.TypeFor[KeyValue[string, Child]]()
-
-	// mapAnyWithErrTCs is NOT used because KeyValuesWithErr()
-	// the only constructor with generics that has it's own implementation
-	tcs := []anyWithErrTC{
-		{name: "normal", data: map[string]Child{}, rules: []Rule{onlyKindRule{kind: reflect.Struct}}},
-		// the named KeyValue type is TypeChecked directly
-		{name: "named_keyvalue_type", data: map[string]Child{}, rules: []Rule{Fields[KeyValue[string, Child]](RuleMap{"Key": {presentRule{}}})}},
-		{name: "no_matching_rule", data: map[string]Child{}, rules: []Rule{noMatchingRule},
-			err: fmt.Errorf("KeyValues: entry type: %w", noMatchingRule.TypeCheck(namedType))},
-	}
-	testAnyWithErr(t, tcs, func(_ reflect.Type, rules ...Rule) (reflect.Type, []Rule, error) {
-		validator, err := KeyValuesWithErr[map[string]Child](rules...)
-		return validator.Type(), validator.KeyValueRules(), err
-	})
-
-	// the named KeyValue type is stored, unlike KeyValuesAnyWithErr
-	validator, err := KeyValuesWithErr[map[string]Child]()
-	require.NoError(t, err)
-	require.Equal(t, namedType, validator.KeyValueType())
+	require.Panics(t, func() { KeyValuesAny(reflect.TypeFor[Child](), onlyKindRule{kind: reflect.Map}) })
 }
 
 func TestKeyValuesAnyWithErr(t *testing.T) {
 	noMatchingRule := onlyKindRule{kind: reflect.Int}
-	namedType := reflect.TypeFor[KeyValue[string, Child]]()
-	anonType := reflect.TypeFor[struct {
-		Key   string
-		Value Child
-	}]()
-	require.NotEqual(t, namedType, anonType)
 
-	// the anonymous KeyValue struct is stored, as a named generic type can't be constructed via reflection
-	validator, err := KeyValuesAnyWithErr(reflect.TypeFor[map[string]Child](), onlyKindRule{kind: reflect.Struct})
-	require.NoError(t, err)
-	require.Equal(t, anonType, validator.KeyValueType())
-
-	namedKeyValueRule := Fields[KeyValue[string, Child]](RuleMap{"Key": {presentRule{}}})
 	tcs := append(mapAnyWithErrTCs("KeyValues"), []anyWithErrTC{
-		// a named generic type can't be constructed via reflection, so the anonymous KeyValue struct is TypeChecked instead
-		{name: "named_keyvalue_rule_fails", data: map[string]Child{}, rules: []Rule{namedKeyValueRule},
-			err: fmt.Errorf("KeyValues: entry type: %w", namedKeyValueRule.TypeCheck(anonType))},
+		// the key-value pair rule TypeChecks against the Map type itself, as each key-value pair is passed down as a Map with only 1 key-value pair
+		{name: "keyvalue_rule", data: map[string]Child{}, rules: []Rule{newKeyValueRule[string, Child](nil, nil)}},
 		{name: "no_matching_rule", data: map[string]Child{}, rules: []Rule{noMatchingRule},
-			err: fmt.Errorf("KeyValues: entry type: %w", noMatchingRule.TypeCheck(anonType))},
+			err: fmt.Errorf("KeyValues: key-value pair type: %w", noMatchingRule.TypeCheck(reflect.TypeFor[map[string]Child]()))},
 	}...)
 	testAnyWithErr(t, tcs, func(typ reflect.Type, rules ...Rule) (reflect.Type, []Rule, error) {
 		validator, err := KeyValuesAnyWithErr(typ, rules...)
@@ -292,7 +281,7 @@ func TestKeyValuesVldr_Validate(t *testing.T) {
 		{name: "invalid", data: map[int]sliceValidatorElement{0: {Int: 1}}, result: ErrorMap{errorKey: *presentRuleError(errorKey)}},
 	}
 	testValidate(t, tcs, func() (ValidatorTyped[map[int]sliceValidatorElement], error) {
-		return KeyValuesWithErr[map[int]sliceValidatorElement](Fields[KeyValue[int, sliceValidatorElement]](RuleMap{"Key": {presentRule{}}}))
+		return KeyValuesWithErr[map[int]sliceValidatorElement](newKeyValueRule[int, sliceValidatorElement]([]Rule{presentRule{}}, nil))
 	})
 }
 
@@ -316,7 +305,7 @@ func TestKeyValuesAnyVldr_ValidateAll(t *testing.T) {
 		{name: "Value_Invalid", errorKeys: []string{"[1].Value.Int"}, f: func() any {
 			return map[int]sliceValidatorElement{1: {UInt: 1}}
 		}},
-		{name: "Entry_Invalid_mixed", errorKeys: []string{"[0].Key", "[0].Value.Int"}, f: func() any {
+		{name: "KeyValue_Invalid_mixed", errorKeys: []string{"[0].Key", "[0].Value.Int"}, f: func() any {
 			return map[int]sliceValidatorElement{0: {UInt: 1}, 1: {Int: 1}}
 		}},
 

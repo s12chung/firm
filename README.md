@@ -288,7 +288,7 @@ The `firm` package provides:
 | `KeysAny(type, rules...)` | same as above. returns `firm.KeysAnyVldr` |
 | `firm.Values[map[K]V](rules...)` | maps, running rules on all values. returns `firm.ValuesVldr[map[K]V]` |
 | `ValuesAny(type, rules...)` | same as above. returns `firm.ValuesAnyVldr` |
-| `firm.KeyValues[map[K]V](rules...)` | maps, running rules on all key-value pairs, passing each key-value pair as a `firm.KeyValue[K, V]` to validate. returns `firm.KeyValuesVldr[map[K]V]` |
+| `firm.KeyValues[map[K]V](rules...)` | maps, running rules on all key-value pairs, passing each key-value pair as a `map[K]V` with only 1 key-value pair to validate. returns `firm.KeyValuesVldr[map[K]V]` |
 | `KeyValuesAny(type, rules...)` | same as above. returns `firm.KeyValuesAnyVldr` |
 | `firm.Value[T](rules...)` | validates simple values. returns `firm.ValueVldr[T]` |
 | `ValueAny(type, rules...)` | same as above. returns `firm.ValueAnyVldr` |
@@ -416,16 +416,32 @@ ptValuesValidator.ValidateAny(&toValidatePt) // All pointers are indirected, so 
 
 When returning errors, pointer keys are indirected  (e.g. `[mykey]`, `[<nil>]` for a nil key), as addresses are unstable and unreadable.
 
-For key-value pair validations, `KeyValues[map[K]V]()` validates with:
+To avoid [reflection](https://github.com/golang/go/issues/45591) [issues](https://github.com/golang/go/issues/54393), `KeyValues[map[K]V]()` iterates over key-value pairs a `map` (`map[K]V`) with only a single key-value pair.
 
 ```go
-type KeyValue[K comparable, V any] struct {
-	Key   K
-	Value V
-}
-```
+// For each key-value pair, validate whether the value is true if the key is even
+type IsEven struct{}
 
-A generic type can't be constructed via reflection, so `KeyValuesAny()/KeyValuesAnyWithErr()` validates entries as the equivalent anonymous struct, `struct { Key K; Value V }`--generic reflect types don't exist (see [golang/go#45591](https://github.com/golang/go/issues/45591), [golang/go#54393](https://github.com/golang/go/issues/54393)).
+func (e IsEven) ValidateValue(value reflect.Value) firm.ErrorMap {
+	errorMap := firm.ErrorMap{}
+	for iter := value.MapRange(); iter.Next(); {
+		if iter.Key().Int()%2 != 0 || iter.Value().Bool() {
+			continue
+		}
+		errorMap["IsEven"] = firm.TemplateError{Template: "is not true"}
+	}
+	return errorMap.ToNil()
+}
+
+func (e IsEven) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
+	if typ.Kind() == reflect.Map && typ.Key().Kind() == reflect.Int && typ.Elem().Kind() == reflect.Bool {
+		return nil
+	}
+	return firm.NewRuleTypeError("IsEven", typ, "is not a Map with an Int key and Bool value")
+}
+
+firm.KeyValues[map[int]bool](IsEven{})
+```
 
 ## Examples
 

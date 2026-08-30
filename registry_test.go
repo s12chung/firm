@@ -299,18 +299,13 @@ func TestRegistryBacker_SelfRecursion(t *testing.T) {
 func TestRegistryBacker_Stamping(t *testing.T) {
 	registry := &Registry{}
 	require.NoError(t, registry.RegisterType(NewDefinition[registryChild]().ValidatesSelf(presentRule{})))
-	// KeyValuesAnyWithErr stamps entries as an anonymous KeyValue struct, so it is
-	// registered by the anonymous type
-	require.NoError(t, registry.RegisterType(NewDefinition[struct {
-		Key   registryChild
-		Value registryChild
-	}]().ValidatesSelf(presentRule{})))
+	// KeyValuesAnyWithErr stamps key-value pair rules as the Map type itself, so it is registered by the Map type.
+	// Keys() is used, as a key-value pair is a non-nil Map with only 1 key-value pair, so presentRule would always pass on "itself"
+	require.NoError(t, registry.RegisterType(NewDefinition[map[registryChild]registryChild]().
+		ValidatesSelf(Keys[map[registryChild]registryChild](presentRule{}))))
 
 	childBacker := []Rule{RegistryBacker{Registry: registry, typ: reflect.TypeFor[registryChild]()}}
-	keyValueBacker := []Rule{RegistryBacker{Registry: registry, typ: reflect.StructOf([]reflect.StructField{
-		{Name: "Key", Type: reflect.TypeFor[registryChild]()},
-		{Name: "Value", Type: reflect.TypeFor[registryChild]()},
-	})}}
+	mapBacker := []Rule{RegistryBacker{Registry: registry, typ: reflect.TypeFor[map[registryChild]registryChild]()}}
 
 	tcs := []struct {
 		name string
@@ -380,17 +375,17 @@ func TestRegistryBacker_Stamping(t *testing.T) {
 				v, err := ValuesAnyWithErr(reflect.TypeFor[*map[registryChild]registryChild](), registry.Backed())
 				return v, v.valueRules, err
 			}},
-		{name: "key_values", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}]", presentRuleKey)},
-			expectedRules: keyValueBacker,
+		{name: "key_values", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}].[{}]", presentRuleKey)},
+			expectedRules: mapBacker,
 			newValidator: func() (Validator, []Rule, error) {
 				v, err := KeyValuesAnyWithErr(reflect.TypeFor[map[registryChild]registryChild](), registry.Backed())
-				return v, v.entryRules, err
+				return v, v.keyValueRules, err
 			}},
-		{name: "key_values_ptr", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}]", presentRuleKey)},
-			expectedRules: keyValueBacker,
+		{name: "key_values_ptr", data: map[registryChild]registryChild{{}: {}}, keySuffixes: []string{joinKeys("[{}].[{}]", presentRuleKey)},
+			expectedRules: mapBacker,
 			newValidator: func() (Validator, []Rule, error) {
 				v, err := KeyValuesAnyWithErr(reflect.TypeFor[*map[registryChild]registryChild](), registry.Backed())
-				return v, v.entryRules, err
+				return v, v.keyValueRules, err
 			}},
 	}
 
