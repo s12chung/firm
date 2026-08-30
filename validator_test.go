@@ -1007,7 +1007,7 @@ func TestFieldsAnyWithErr(t *testing.T) {
 			require.Equal(indirectType(reflect.TypeOf(tc.data)), validator.typ)
 			require.Len(validator.ruleMap, len(tc.ruleMap))
 			for k, v := range tc.ruleMap {
-				require.Equal(v, *validator.ruleMap[k])
+				require.Equal(v, validator.ruleMap[k])
 			}
 		})
 	}

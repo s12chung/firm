@@ -58,6 +58,9 @@ func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := checkRecursion(r, typ, v.Rules()); err != nil {
+		return nil, err
+	}
 	return &v, nil
 }
 
@@ -80,7 +83,9 @@ func (r *Registry) ValidateAny(data any) ErrorMap {
 
 // ValidateValue validates the data value with the correct validator (assumes TypeCheck is called)
 func (r *Registry) ValidateValue(value reflect.Value) ErrorMap {
-	return r.DefaultedValidator(value.Type()).ValidateValue(value)
+	errorMap := ErrorMap{}
+	r.ValidateMerge(value, "", errorMap)
+	return errorMap.ToNil()
 }
 
 // TypeCheck checks whether the type is valid for the Rule
@@ -90,6 +95,9 @@ func (r *Registry) TypeCheck(typ reflect.Type) *RuleTypeError {
 
 // ValidateMerge validates the data value with the correct validator, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (r *Registry) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	if !value.IsValid() {
+		return
+	}
 	r.DefaultedValidator(value.Type()).ValidateMerge(value, key, errorMap)
 }
 
@@ -124,7 +132,7 @@ func (r *Registry) Backed() RegistryBacker { return RegistryBacker{Registry: r} 
 
 // RegistryBacker safely validates against a Registry.
 // typ allows handling `nil` values, as the reflect.Type can't be inferred.
-// typ is set via stampRegistryBackers() through FieldsAnyWithErr().
+// typ is set via stampRegistryBackers() through the *WithErr constructors.
 // Intended to be used with Registry.Backed() for easy reading.
 type RegistryBacker struct {
 	Registry *Registry
@@ -153,3 +161,56 @@ func (b RegistryBacker) ValidateMerge(value reflect.Value, key string, errorMap 
 
 // TypeCheck checks whether the type is valid for the Rule
 func (b RegistryBacker) TypeCheck(typ reflect.Type) *RuleTypeError { return b.Registry.TypeCheck(typ) }
+
+type ruleLister interface{ allRules() []Rule }
+
+// backerTarget is the validation edge a RegistryBacker traverses: the type validated in a registry
+type backerTarget struct {
+	registry *Registry
+	typ      reflect.Type
+}
+
+// checkRecursion errors if backing from rules of the registering typ reaches the typ again,
+// as validation would infinitely recurse
+func checkRecursion(r *Registry, typ reflect.Type, rules []Rule) error {
+	check := recursionCheck{origin: backerTarget{r, typ}, visited: map[backerTarget]bool{}}
+	return check.walk(rules)
+}
+
+type recursionCheck struct {
+	origin  backerTarget
+	visited map[backerTarget]bool
+}
+
+func (c recursionCheck) walk(rules []Rule) error {
+	for _, rule := range rules {
+		if backer, ok := rule.(RegistryBacker); ok {
+			if err := c.walkBacker(backer); err != nil {
+				return err
+			}
+			continue
+		}
+		if lister, ok := rule.(ruleLister); ok {
+			if err := c.walk(lister.allRules()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c recursionCheck) walkBacker(backer RegistryBacker) error {
+	target := backerTarget{backer.Registry, backer.typ}
+	if target == c.origin {
+		return fmt.Errorf("Registry: type, %v, recurses back to itself via RegistryBacker", c.origin.typ.String())
+	}
+	if c.visited[target] {
+		return nil
+	}
+	c.visited[target] = true
+	lister, ok := backer.Registry.Validator(backer.typ).(ruleLister)
+	if !ok {
+		return nil
+	}
+	return c.walk(lister.allRules())
+}

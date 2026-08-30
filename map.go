@@ -1,7 +1,6 @@
 package firm
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -29,12 +28,11 @@ func KeysAnyWithErr(typ reflect.Type, keyRules ...Rule) (KeysAnyVldr, error) {
 		return KeysAnyVldr{}, err
 	}
 
-	for _, rule := range keyRules {
-		if err := rule.TypeCheck(indirectType(typ.Key())); err != nil {
-			return KeysAnyVldr{}, fmt.Errorf("Keys: key type: %w", err)
-		}
+	keyRules, err = typeCheckRules(typ.Key(), keyRules, "Keys: key type")
+	if err != nil {
+		return KeysAnyVldr{}, err
 	}
-	return KeysAnyVldr{typ: typ, keyRules: stampRegistryBackers(keyRules, typ.Key())}, nil
+	return KeysAnyVldr{typ: typ, keyRules: keyRules}, nil
 }
 
 // KeysVldr validates map keys
@@ -77,6 +75,9 @@ func (s KeysAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // KeyRules returns the rules for each key in the Map
 func (s KeysAnyVldr) KeyRules() []Rule { return s.keyRules }
 
+// allRules returns all rules of the validator, the rules of each key
+func (s KeysAnyVldr) allRules() []Rule { return s.keyRules }
+
 // Values returns a new ValuesVldr, panics if there is an error
 func Values[T map[K]V, K comparable, V any](valueRules ...Rule) ValuesVldr[T, K, V] {
 	return mustNewValidator(func() (ValuesVldr[T, K, V], error) { return ValuesWithErr[T, K, V](valueRules...) })
@@ -101,12 +102,11 @@ func ValuesAnyWithErr(typ reflect.Type, valueRules ...Rule) (ValuesAnyVldr, erro
 		return ValuesAnyVldr{}, err
 	}
 
-	for _, rule := range valueRules {
-		if err := rule.TypeCheck(indirectType(typ.Elem())); err != nil {
-			return ValuesAnyVldr{}, fmt.Errorf("Values: value type: %w", err)
-		}
+	valueRules, err = typeCheckRules(typ.Elem(), valueRules, "Values: value type")
+	if err != nil {
+		return ValuesAnyVldr{}, err
 	}
-	return ValuesAnyVldr{typ: typ, valueRules: stampRegistryBackers(valueRules, typ.Elem())}, nil
+	return ValuesAnyVldr{typ: typ, valueRules: valueRules}, nil
 }
 
 // ValuesVldr validates map values
@@ -149,6 +149,9 @@ func (s ValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // ValueRules returns the rules for each value in the Map
 func (s ValuesAnyVldr) ValueRules() []Rule { return s.valueRules }
 
+// allRules returns all rules of the validator, the rules of each value
+func (s ValuesAnyVldr) allRules() []Rule { return s.valueRules }
+
 // KeyValues returns a new KeyValuesVldr, panics if there is an error
 func KeyValues[T map[K]V, K comparable, V any](keyValueRules ...Rule) KeyValuesVldr[T, K, V] {
 	return mustNewValidator(func() (KeyValuesVldr[T, K, V], error) { return KeyValuesWithErr[T, K, V](keyValueRules...) })
@@ -173,12 +176,11 @@ func KeyValuesAnyWithErr(typ reflect.Type, keyValueRules ...Rule) (KeyValuesAnyV
 		return KeyValuesAnyVldr{}, err
 	}
 
-	for _, rule := range keyValueRules {
-		if err := rule.TypeCheck(typ); err != nil {
-			return KeyValuesAnyVldr{}, fmt.Errorf("KeyValues: key-value pair type: %w", err)
-		}
+	keyValueRules, err = typeCheckRules(typ, keyValueRules, "KeyValues: key-value pair type")
+	if err != nil {
+		return KeyValuesAnyVldr{}, err
 	}
-	return KeyValuesAnyVldr{typ: typ, keyValueRules: stampRegistryBackers(keyValueRules, typ)}, nil
+	return KeyValuesAnyVldr{typ: typ, keyValueRules: keyValueRules}, nil
 }
 
 // KeyValuesVldr validates map key-value pairs, passing each key-value pair down as a Map with only 1 key-value pair to validate
@@ -223,12 +225,5 @@ func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // KeyValueRules returns the rules for each key-value pair in the Map
 func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return s.keyValueRules }
 
-// mapErrorKey returns the error path key of a map key, e.g. [key], mirroring a slice's [i].
-// Pointer keys are indirected, as addresses are unstable across runs and unreadable
-func mapErrorKey(key reflect.Value) string {
-	key = indirect(key)
-	if !key.IsValid() {
-		return "[<nil>]"
-	}
-	return "[" + fmt.Sprintf("%v", key.Interface()) + "]"
-}
+// allRules returns all rules of the validator, the rules of each key-value pair
+func (s KeyValuesAnyVldr) allRules() []Rule { return s.keyValueRules }

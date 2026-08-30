@@ -18,6 +18,26 @@ type registryChild struct{}
 
 type registryNotFoundTest struct{}
 
+type cycleParent struct {
+	Child *cycleChild
+}
+
+type cycleChild struct {
+	Parent *cycleParent
+}
+
+type cycleSelfRef struct {
+	Child *cycleSelfRef
+}
+
+type cycleSliceParent struct {
+	Children []cycleSliceChild
+}
+
+type cycleSliceChild struct {
+	Parent *cycleSliceParent
+}
+
 func TestRegistry_RegisterType(t *testing.T) {
 	require := require.New(t)
 
@@ -32,7 +52,7 @@ func TestRegistry_RegisterType(t *testing.T) {
 		registryParentType: {
 			typ: registryParentType,
 			rules: []Rule{presentRule{},
-				FieldsAnyVldr{typ: registryParentType, ruleMap: map[string]*[]Rule{
+				FieldsAnyVldr{typ: registryParentType, ruleMap: map[string][]Rule{
 					// stamped at registration with the field's type
 					"Child": {RegistryBacker{Registry: registry, typ: registryChildType}},
 				}},
@@ -154,6 +174,23 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			testValidateAll(t, registry, &data, tc.err, tc.expectedKeySuffix)
 		})
 	}
+}
+
+func TestRegistry_InvalidValue(t *testing.T) {
+	require := require.New(t)
+
+	registry := &Registry{}
+	require.NoError(registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
+
+	// panics without the IsValid guard
+	require.NotPanics(func() {
+		errorMap := registry.ValidateValue(reflect.Value{})
+		require.Nil(errorMap)
+	})
+
+	errorMap := ErrorMap{}
+	registry.ValidateMerge(reflect.Value{}, "key", errorMap)
+	require.Empty(errorMap)
 }
 
 func TestRegistry_DefaultedValidator(t *testing.T) {
@@ -295,6 +332,42 @@ func TestRegistryBacker_SelfRecursion(t *testing.T) {
 	require.NoError(registry.RegisterType(NewDefinition[registryChild]().ValidatesSelf(otherRegistry.Backed())))
 }
 
+func TestRegistry_RegisterType_Recursion(t *testing.T) {
+	cycleError := func(typ string) string {
+		return "RegisterType() with type firm." + typ + ": " +
+			"Registry: type, firm." + typ + ", recurses back to itself via RegistryBacker"
+	}
+
+	t.Run("fields", func(t *testing.T) {
+		require := require.New(t)
+		registry := &Registry{}
+		// the edge to the not-yet-registered cycleParent terminates the walk, so allow
+		require.NoError(registry.RegisterType(NewDefinition[cycleChild]().
+			Validates(RuleMap{"Parent": {registry.Backed()}})))
+		err := registry.RegisterType(NewDefinition[cycleParent]().
+			Validates(RuleMap{"Child": {registry.Backed()}}))
+		require.EqualError(err, cycleError("cycleParent"))
+	})
+
+	t.Run("self_reference", func(t *testing.T) {
+		require := require.New(t)
+		registry := &Registry{}
+		err := registry.RegisterType(NewDefinition[cycleSelfRef]().
+			Validates(RuleMap{"Child": {registry.Backed()}}))
+		require.EqualError(err, cycleError("cycleSelfRef"))
+	})
+
+	t.Run("elems", func(t *testing.T) {
+		require := require.New(t)
+		registry := &Registry{}
+		require.NoError(registry.RegisterType(NewDefinition[cycleSliceChild]().
+			Validates(RuleMap{"Parent": {registry.Backed()}})))
+		err := registry.RegisterType(NewDefinition[cycleSliceParent]().
+			Validates(RuleMap{"Children": {Elems[[]cycleSliceChild](registry.Backed())}}))
+		require.EqualError(err, cycleError("cycleSliceParent"))
+	})
+}
+
 // nolint:funlen // a bunch of test cases
 func TestRegistryBacker_Stamping(t *testing.T) {
 	registry := &Registry{}
@@ -319,13 +392,13 @@ func TestRegistryBacker_Stamping(t *testing.T) {
 			expectedRules: childBacker,
 			newValidator: func() (Validator, []Rule, error) {
 				v, err := FieldsAnyWithErr(reflect.TypeFor[registryParent](), RuleMap{"Child": {registry.Backed()}})
-				return v, *v.ruleMap["Child"], err
+				return v, v.ruleMap["Child"], err
 			}},
 		{name: "fields_ptr", data: registryParent{}, keySuffixes: []string{joinKeys("Child", presentRuleKey)},
 			expectedRules: childBacker,
 			newValidator: func() (Validator, []Rule, error) {
 				v, err := FieldsAnyWithErr(reflect.TypeFor[*registryParent](), RuleMap{"Child": {registry.Backed()}})
-				return v, *v.ruleMap["Child"], err
+				return v, v.ruleMap["Child"], err
 			}},
 		{name: "elems", data: []registryChild{{}}, keySuffixes: []string{joinKeys("[0]", presentRuleKey)},
 			expectedRules: childBacker,

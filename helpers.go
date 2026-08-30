@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -55,4 +56,14 @@ func joinKeys[T ~string](keys ...T) T {
 		key += v
 	}
 	return key
+}
+
+func sliceErrorKey(i int) string { return "[" + strconv.Itoa(i) + "]" }
+
+func mapErrorKey(key reflect.Value) string {
+	key = indirect(key)
+	if !key.IsValid() {
+		return "[<nil>]"
+	}
+	return "[" + fmt.Sprintf("%v", key.Interface()) + "]"
 }

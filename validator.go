@@ -3,8 +3,8 @@ package firm
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
-	"strconv"
 )
 
 // Fields returns a new FieldsVldr, panics if there is an error
@@ -31,7 +31,7 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 		return FieldsAnyVldr{}, err
 	}
 
-	rm := map[string]*[]Rule{}
+	rm := map[string][]Rule{}
 	for fieldName, rules := range ruleMap {
 		field, found := typ.FieldByName(fieldName)
 		if !found {
@@ -40,13 +40,11 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 		if !field.IsExported() {
 			return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, is unexported in type: %v", fieldName, typ.String())
 		}
-		for _, rule := range rules {
-			if err := rule.TypeCheck(indirectType(field.Type)); err != nil {
-				return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, in %v: %w", fieldName, typ.String(), err)
-			}
+		rules, err := typeCheckRules(field.Type, rules, fmt.Sprintf("Fields: field, %v, in %v", fieldName, typ.String()))
+		if err != nil {
+			return FieldsAnyVldr{}, err
 		}
-		stamped := stampRegistryBackers(rules, field.Type)
-		rm[fieldName] = &stamped
+		rm[fieldName] = rules
 	}
 	return FieldsAnyVldr{typ: typ, ruleMap: rm}, nil
 }
@@ -60,7 +58,7 @@ func (s FieldsVldr[T]) Validate(data T) ErrorMap { return validate(s, data) }
 // FieldsAnyVldr is a FieldsVldr without generics
 type FieldsAnyVldr struct {
 	typ     reflect.Type
-	ruleMap map[string]*[]Rule
+	ruleMap map[string][]Rule
 }
 
 // Type returns the Type the Validator handles
@@ -81,7 +79,7 @@ func (s FieldsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap E
 		//nolint:godox // want the comment
 		field, _ := value.Type().FieldByName(fieldName) // TODO: cache field indexes at FieldsAnyWithErr to avoid per-validation lookups?
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, field.Name), errorMap, *rules)
+		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, field.Name), errorMap, rules)
 	}
 }
 
@@ -93,10 +91,17 @@ func (s FieldsAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // RuleMap returns the rules mapped to each field
 func (s FieldsAnyVldr) RuleMap() RuleMap {
 	ruleMap := RuleMap{}
-	for k, v := range s.ruleMap {
-		ruleMap[k] = *v
-	}
+	maps.Copy(ruleMap, s.ruleMap)
 	return ruleMap
+}
+
+// allRules returns all rules of the validator, the rules of every field
+func (s FieldsAnyVldr) allRules() []Rule {
+	var rules []Rule
+	for _, fieldRules := range s.ruleMap {
+		rules = append(rules, fieldRules...)
+	}
+	return rules
 }
 
 // Elems returns a new ElemsVldr, panics if there is an error
@@ -123,12 +128,11 @@ func ElemsAnyWithErr(typ reflect.Type, elementRules ...Rule) (ElemsAnyVldr, erro
 		return ElemsAnyVldr{}, err
 	}
 
-	for _, rule := range elementRules {
-		if err := rule.TypeCheck(indirectType(typ.Elem())); err != nil {
-			return ElemsAnyVldr{}, fmt.Errorf("Elems: element type: %w", err)
-		}
+	elementRules, err = typeCheckRules(typ.Elem(), elementRules, "Elems: element type")
+	if err != nil {
+		return ElemsAnyVldr{}, err
 	}
-	return ElemsAnyVldr{typ: typ, elementRules: stampRegistryBackers(elementRules, typ.Elem())}, nil
+	return ElemsAnyVldr{typ: typ, elementRules: elementRules}, nil
 }
 
 // ElemsVldr validates slices and arrays
@@ -159,7 +163,7 @@ func (s ElemsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap Er
 	}
 	for i := range value.Len() {
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(value.Index(i)), joinKeys(key, "["+strconv.Itoa(i)+"]"), errorMap, s.elementRules)
+		validateMerge(indirect(value.Index(i)), joinKeys(key, sliceErrorKey(i)), errorMap, s.elementRules)
 	}
 }
 
@@ -170,6 +174,9 @@ func (s ElemsAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 
 // ElementRules returns the rules each element in the Slice or Array
 func (s ElemsAnyVldr) ElementRules() []Rule { return s.elementRules }
+
+// allRules returns all rules of the validator, the rules of each element
+func (s ElemsAnyVldr) allRules() []Rule { return s.elementRules }
 
 // Value returns a new ValueVldr, panics if there is an error
 func Value[T any](rules ...Rule) ValueVldr[T] {
@@ -194,12 +201,9 @@ func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 		return ValueAnyVldr{}, errors.New("Value: type is nil, not recommended")
 	}
 	typ = indirectType(typ)
-	rules = stampRegistryBackers(rules, typ)
-
-	for _, rule := range rules {
-		if err := rule.TypeCheck(typ); err != nil {
-			return ValueAnyVldr{}, err
-		}
+	rules, err := typeCheckRules(typ, rules, "")
+	if err != nil {
+		return ValueAnyVldr{}, err
 	}
 	return ValueAnyVldr{typ: typ, rules: rules}, nil
 }
@@ -242,6 +246,9 @@ func (v ValueAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // Rules returns the rules for ValueAnyVldr
 func (v ValueAnyVldr) Rules() []Rule { return v.rules }
 
+// allRules returns all rules of the validator
+func (v ValueAnyVldr) allRules() []Rule { return v.rules }
+
 // RuleVldr is a Validator wrapper around Rule
 type RuleVldr struct{ Rule }
 
@@ -252,6 +259,9 @@ func (r RuleVldr) ValidateAny(data any) ErrorMap { return validateAny(r, data) }
 func (r RuleVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	validateMerge(value, key, errorMap, []Rule{r.Rule})
 }
+
+// allRules returns all rules of the validator, the wrapped Rule
+func (r RuleVldr) allRules() []Rule { return []Rule{r.Rule} }
 
 func mustNewValidator[T any](f func() (T, error)) T {
 	validator, err := f()
@@ -318,6 +328,20 @@ func validate(validator Validator, data any) ErrorMap {
 	errorMap := ErrorMap{}
 	validator.ValidateMerge(value, value.Type().String(), errorMap)
 	return errorMap.Finish()
+}
+
+// typeCheckRules TypeChecks each rule against the indirected typ, wrapping any error with errContext,
+// and returns rules with each RegistryBacker set to typ
+func typeCheckRules(typ reflect.Type, rules []Rule, errContext string) ([]Rule, error) {
+	for _, rule := range rules {
+		if err := rule.TypeCheck(indirectType(typ)); err != nil {
+			if errContext == "" {
+				return nil, err
+			}
+			return nil, fmt.Errorf("%s: %w", errContext, err)
+		}
+	}
+	return stampRegistryBackers(rules, typ), nil
 }
 
 // stampRegistryBackers returns rules with each RegistryBacker set to typ

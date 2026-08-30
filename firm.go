@@ -59,6 +59,12 @@ type RuleTyped[T any] interface {
 }
 
 // Validator validates the data
+//
+// Invalid reflect.Values (e.g. from indirecting a nil pointer) are handled per case:
+//   - ValidateMerge() skips them on validators and Registry/RegistryBacker--nothing to traverse
+//   - ValueAnyVldr/RuleVldr pass them to Rules, which check value.IsValid() themselves (e.g. rule.Present errors)
+//   - ValidateAny()/Validate() return a "value is not valid" error, except Registry.ValidateAny(nil),
+//     which returns "not found in Registry", as the type can't be inferred for routing
 type Validator interface {
 	Rule
 	ValidateAny(data any) ErrorMap
