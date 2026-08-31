@@ -1320,7 +1320,7 @@ func TestValueAnyWithErr(t *testing.T) {
 		{name: "normal", data: i, rules: []Rule{intRule}},
 		{name: "int_pointer", data: intPt, rules: []Rule{intRule}},
 		{name: "int_double_pointer", data: doubleIntPt, rules: []Rule{intRule}},
-		{name: "nil_type", data: nil, err: errors.New("Value: type is nil, not recommended")},
+		{name: "nil_type", data: nil, err: errors.New("Value: type is nil")},
 		{name: "not_int", data: []int{}, rules: []Rule{intRule}, err: intRule.TypeCheck(reflect.TypeFor[[]int]())},
 	}
 	for _, tc := range tcs {

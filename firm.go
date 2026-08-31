@@ -37,7 +37,7 @@ func (n NotFoundRule) ErrorMap() ErrorMap {
 	return ErrorMap{"NotFound": TemplateError{Template: "type, {{.RootTypeName}}, not found in Registry"}}
 }
 
-// RuleMap is a map of fields or keys to rules
+// RuleMap is a map of struct fields to rules
 type RuleMap map[string][]Rule
 
 // Rule defines a rule for validation definitions and validators

@@ -311,10 +311,24 @@ func TestRegistryBacker(t *testing.T) {
 	require := require.New(t)
 
 	registry := &Registry{}
-	require.NoError(RegisterType(NewDefinition[registryChild]()))
+	require.NoError(registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
 
-	// unstamped backers have no type, so they fall back to the DefaultValidator's NotFound error
-	require.Equal(notFoundError(registryParent{}), registry.Backed().ValidateAny(registryParent{}))
+	// unstamped backers have no type, so the data's own type routes the validation
+	testValidateAll(t, registry.Backed(), registryParent{}, presentRuleError(""), presentRuleKey)
+	// wrapping in RuleVldr leaves the backer unstamped
+	testValidateAll(t, RuleVldr{Rule: registry.Backed()}, registryParent{}, presentRuleError(""), presentRuleKey)
+
+	require.Equal(notFoundError(registryNotFoundTest{}), registry.Backed().ValidateAny(registryNotFoundTest{}))
+	require.Equal(notFoundError(nilType{}), registry.Backed().ValidateAny(nil))
+
+	// stamped backers route by their stamped type
+	parentType := reflect.TypeFor[registryParent]()
+	stamped := RegistryBacker{Registry: registry, typ: parentType}
+	testValidateAll(t, stamped, registryParent{}, presentRuleError(""), presentRuleKey)
+	// registryNotFoundTest is unregistered, so the stamped type routes, not the data's own type
+	require.Equal(ErrorMap{"TypeCheck": NewRuleTypeError(
+		"ValueAnyVldr", reflect.TypeFor[registryNotFoundTest](), "is not matching of type "+parentType.String(),
+	).TemplateError()}, stamped.ValidateAny(registryNotFoundTest{}))
 }
 
 func TestRegistryBacker_SelfRecursion(t *testing.T) {

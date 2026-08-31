@@ -348,15 +348,15 @@ firm.MustRegisterType(
 
 Pass **anything** to `ValidateAny(data any)`--the type is inferred to validate with the correct `firm.Validator`. Like all built-in validators, all pointers are indirected. Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. The same rules will apply the same slice and same `Child`. Unregistered types return "not found in Registry" error.
 
-`firm.DefaultRegistry.Backed()` returns a `firm.RegistryBacker`, which basically covers `firm.DefaultRegistry`'s gotcha and proxies every call to it.
+`firm.DefaultRegistry.Backed()` returns a `firm.RegistryBacker`, which basically proxies every call to `firm.DefaultRegistry` and handles a gotcha.
 
 In detail, `firm.Registry` can't infer the type from `nil` when `ValidateAny(nil)` is called, so a "not found in Registry" error is returned. `firm.RegistryBacker` covers the gotcha as thus:
 
-1. From `firm.Fields[T]()`, `firm.RegistryBacker` is given `Config.Queries`'s type
+1. From `firm.MustRegisterType()` calling the `firm.FieldsAnyWithErr()` constructor, `firm.RegistryBacker` is given `Config.Queries`'s type
 2. Given the type, `firm.RegistryBacker` always has access to `Config.Queries`'s validator
 3. So `Config.Queries`'s rules are applied to that field's elements (`Query` structs)
 
-Other constructors of built-in recursive validators (`Elems()`, `Keys()`, `Values()`, `KeyValues()`) also do Step 1 above. `firm.RegistryBacker` must be passed in they recursion validators **directly**.
+All constructors of built-in **recursive** validators (`Fields()`, `Elems()`, `Keys()`, `KeyValues()`, typed/non-typed, with/without errors, etc.) also do Step 1 above. To cover the gotcha, pass `firm.RegistryBacker` into these validators **directly**.
 
 ### Slices and Arrays
 

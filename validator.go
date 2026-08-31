@@ -198,7 +198,7 @@ func ValueAny(typ reflect.Type, rules ...Rule) ValueAnyVldr {
 // ValueAnyWithErr returns a ValueAnyVldr. Pointer types are indirected to their value type
 func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 	if typ == nil {
-		return ValueAnyVldr{}, errors.New("Value: type is nil, not recommended")
+		return ValueAnyVldr{}, errors.New("Value: type is nil")
 	}
 	typ = indirectType(typ)
 	rules, err := typeCheckRules(typ, rules, "")

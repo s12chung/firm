@@ -133,6 +133,7 @@ func (r *Registry) Backed() RegistryBacker { return RegistryBacker{Registry: r} 
 // RegistryBacker safely validates against a Registry.
 // typ allows handling `nil` values, as the reflect.Type can't be inferred.
 // typ is set via stampRegistryBackers() through the *WithErr constructors.
+// When typ is not set, the data's own type routes the validation via the Registry's logic.
 // Intended to be used with Registry.Backed() for easy reading.
 type RegistryBacker struct {
 	Registry *Registry
@@ -141,6 +142,9 @@ type RegistryBacker struct {
 
 // ValidateAny validates the data
 func (b RegistryBacker) ValidateAny(data any) ErrorMap {
+	if b.typ == nil {
+		return b.Registry.ValidateAny(data)
+	}
 	return b.Registry.DefaultedValidator(b.typ).ValidateAny(data)
 }
 
@@ -154,6 +158,10 @@ func (b RegistryBacker) ValidateValue(value reflect.Value) ErrorMap {
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (b RegistryBacker) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	if !value.IsValid() {
+		return
+	}
+	if b.typ == nil {
+		b.Registry.ValidateMerge(value, key, errorMap)
 		return
 	}
 	b.Registry.DefaultedValidator(b.typ).ValidateMerge(value, key, errorMap)
