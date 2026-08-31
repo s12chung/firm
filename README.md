@@ -273,13 +273,14 @@ The `rule.Attribute` interface does the value derivations. Built-in attributes a
 ```go
 type Validator interface {
 	Rule
-	// Public use interface - may receive an "unsafe" value and answers it with firm.ErrInvalidValue(),
-	// must also ensure only "safe" values are passed down to:
+	// ValidateAny is a public use interface - may receive an "unsafe value" and
+	// must also ensure only "safe values" are passed down to:
 	// - firm.Rule
 	// - ValidateMerge() below
 	//
 	// See Types, Pointers, and Invalid Values section above
 	ValidateAny(data any) ErrorMap
+	// ValidateMerge expects "safe values"
 	ValidateMerge(value reflect.Value, key string, errorMap ErrorMap)
 }
 ```
@@ -313,8 +314,8 @@ All constructors in the table above `panic()` when there is an error and have a 
 ```go
 type ValidatorTyped[T any] interface {
 	Validator
-	// Public use interface - may receive an "unsafe" value and answers it with firm.ErrInvalidValue(),
-	// must also ensure only "safe" values are passed down to:
+	// Validate is a public use interface - may receive an "unsafe value" and
+	// must also ensure only "safe values" are passed down to:
 	// - firm.Rule
 	// - ValidateMerge() below
 	//

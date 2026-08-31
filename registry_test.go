@@ -328,30 +328,30 @@ func TestRegistryBacker(t *testing.T) {
 	testValidateAll(t, stamped, registryParent{}, presentRuleError(""), presentRuleKey)
 	// registryNotFoundTest is unregistered, so the stamped type routes, not the data's own type
 	require.Equal(ErrorMap{"TypeCheck": NewRuleTypeError(
-		"ValueAnyVldr", reflect.TypeFor[registryNotFoundTest](), "is not matching of type "+parentType.String(),
+		"ValueAnyVldr", reflect.TypeFor[registryNotFoundTest](), "is not matching type "+parentType.String(),
 	).TemplateError()}, stamped.ValidateAny(registryNotFoundTest{}))
 }
 
-func TestRegistryBacker_SelfRecursion(t *testing.T) {
-	require := require.New(t)
-
-	registry := &Registry{}
-	selfRecursionErr := "RegisterType() with type firm.registryChild: " +
-		"Registry: self recursion with RegistryBacker.Registry pointing to RegisterType()'s Registry"
-
-	// recursive, so reject
-	require.EqualError(registry.RegisterType(NewDefinition[registryChild]().ValidatesSelf(registry.Backed())), selfRecursionErr)
-
-	// a different Registry terminates, so allow
-	otherRegistry := &Registry{}
-	require.NoError(registry.RegisterType(NewDefinition[registryChild]().ValidatesSelf(otherRegistry.Backed())))
-}
-
+// nolint:funlen // a bunch of test cases
 func TestRegistry_RegisterType_Recursion(t *testing.T) {
 	cycleError := func(typ string) string {
 		return "RegisterType() with type firm." + typ + ": " +
 			"Registry: type, firm." + typ + ", recurses back to itself via RegistryBacker"
 	}
+
+	t.Run("self_rule", func(t *testing.T) {
+		require := require.New(t)
+		registry := &Registry{}
+		err := registry.RegisterType(NewDefinition[cycleSelfRef]().ValidatesSelf(registry.Backed()))
+		require.EqualError(err, cycleError("cycleSelfRef"))
+	})
+
+	t.Run("other_registry_rule", func(t *testing.T) {
+		require := require.New(t)
+		registry := &Registry{}
+		// a different Registry terminates, so allow
+		require.NoError(registry.RegisterType(NewDefinition[registryChild]().ValidatesSelf((&Registry{}).Backed())))
+	})
 
 	t.Run("fields", func(t *testing.T) {
 		require := require.New(t)

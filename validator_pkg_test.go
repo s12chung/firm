@@ -104,7 +104,7 @@ func TestCustomValidatorPkg(t *testing.T) {
 	}
 	typeCheckErr := firm.TemplateError{
 		TemplateFields: map[string]string{"ValueTypeName": "string"},
-		Template:       "is not matching of type int, got {{.ValueTypeName}}",
+		Template:       "is not matching type int, got {{.ValueTypeName}}",
 	}
 
 	// ImplValidate - typed Validate(), no TypeCheck

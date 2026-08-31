@@ -6,10 +6,10 @@ import (
 	"github.com/s12chung/firm"
 )
 
-// Not returns Not's the firm.RuleBasic's ValidateValue()
+// Not is a rule that negates a firm.RuleBasic
 type Not struct{ Rule firm.RuleBasic }
 
-// ValidateValue runs all the rules after .Attr is called (assumes TypeCheck is called)
+// ValidateValue negates the Rule's ValidateValue() (assumes TypeCheck is called)
 func (n Not) ValidateValue(value reflect.Value) firm.ErrorMap {
 	if n.Rule.ValidateValue(value).ToNil() == nil {
 		return n.ErrorMap()

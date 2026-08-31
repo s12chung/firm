@@ -134,7 +134,8 @@ func (s ValuesAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
 func (s ValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	for iter := value.MapRange(); iter.Next(); {
 		// indirect to ensure passing a non-pointer down to a Rule
-		ImplValidateMerge(indirect(iter.Value()), joinKeys(key, mapErrorKey(indirect(iter.Key()))), errorMap, s.valueRules)
+		keyValue := indirect(iter.Key())
+		ImplValidateMerge(indirect(iter.Value()), joinKeys(key, mapErrorKey(keyValue)), errorMap, s.valueRules)
 	}
 }
 

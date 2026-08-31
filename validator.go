@@ -263,7 +263,7 @@ func (r RuleVldr) AllRules() []Rule { return []Rule{r.Rule} }
 func mustNewValidator[T any](f func() (T, error)) T {
 	validator, err := f()
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 	return validator
 }

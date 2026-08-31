@@ -123,8 +123,7 @@ func comparableValidate[T comparable](rule comparableRule[T], data T) firm.Error
 	return rule.ErrorMap()
 }
 func comparableTypeCheck[T comparable](ruleName string, to T, typ reflect.Type) *firm.RuleTypeError {
-	//nolint:godox // want the comment
-	toType := reflect.TypeOf(to) // TODO: cache in struct?, or use cast switch to package level cache?
+	toType := reflect.TypeOf(to)
 	if toType == typ {
 		return nil
 	}

@@ -26,34 +26,28 @@ type Definition struct {
 	typ       reflect.Type
 	selfRules []Rule
 	ruleMap   RuleMap
+
+	selfRulesSet bool
+	ruleMapSet   bool
 }
 
 // ValidatesSelf defines rules of "itself" as a Value
 func (s *Definition) ValidatesSelf(rules ...Rule) *Definition {
-	if len(s.selfRules) != 0 {
+	if s.selfRulesSet {
 		panic(fmt.Sprintf("ValidatesSelf() called twice in type: %v", s.typ.String()))
 	}
+	s.selfRulesSet = true
 	s.selfRules = rules
 	return s
 }
 
 // Validates defines rules for fields
+// Field checks (struct type, field exists and exported) happen at RegisterType() via FieldsAnyWithErr()
 func (s *Definition) Validates(ruleMap RuleMap) *Definition {
-	if len(s.ruleMap) != 0 {
+	if s.ruleMapSet {
 		panic(fmt.Sprintf("Validates() called twice in type: %v", s.typ.String()))
 	}
-	if s.typ.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("Validates() called with non-struct type: %v", s.typ.String()))
-	}
-	for fieldName := range ruleMap {
-		field, exists := s.typ.FieldByName(fieldName)
-		if !exists {
-			panic(fmt.Sprintf("Validates() called with fieldName, %v, not in type: %v", fieldName, s.typ.String()))
-		}
-		if !field.IsExported() {
-			panic(fmt.Sprintf("Validates() called with fieldName, %v, unexported in type: %v", fieldName, s.typ.String()))
-		}
-	}
+	s.ruleMapSet = true
 	s.ruleMap = ruleMap
 	return s
 }

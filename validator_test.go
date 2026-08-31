@@ -1453,7 +1453,7 @@ func TestValueAnyVldr_TypeCheck(t *testing.T) {
 	}{
 		{name: "matching int", data: 0},
 		{name: "matching int pointer", data: &i},
-		{name: "not int", data: []int{}, badCondition: "is not matching of type int"},
+		{name: "not int", data: []int{}, badCondition: "is not matching type int"},
 	}
 
 	for _, tc := range tcs {

@@ -1,9 +1,9 @@
 package firm
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 )
 
 // Registry registers types to find the right validator to validate with.
@@ -19,7 +19,7 @@ type Registry struct {
 // MustRegisterType registers the Definition to validate the type, panics if there is an error
 func (r *Registry) MustRegisterType(definition *Definition) {
 	if err := r.RegisterType(definition); err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 }
 
@@ -45,18 +45,13 @@ func (r *Registry) RegisterType(definition *Definition) error {
 func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 	typ := definition.Type()
 	selfRules := definition.SelfRules()
-	for _, rule := range selfRules {
-		// Do not self-recurse via RegistryBacker
-		if backer, ok := rule.(RegistryBacker); ok && backer.Registry == r {
-			return nil, errors.New("Registry: self recursion with RegistryBacker.Registry pointing to RegisterType()'s Registry")
-		}
-	}
 	if len(definition.RuleMap()) > 0 {
 		fieldsV, err := FieldsAnyWithErr(definition.typ, definition.RuleMap())
 		if err != nil {
 			return nil, err
 		}
-		selfRules = append(selfRules, fieldsV)
+		// clone for safety
+		selfRules = append(slices.Clone(selfRules), fieldsV)
 	}
 	v, err := ValueAnyWithErr(typ, selfRules...)
 	if err != nil {

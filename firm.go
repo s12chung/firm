@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	// MustRegisterType registers the TypeDefinition to the DefaultRegistry, panics if there is an error
+	// MustRegisterType registers the Definition to the DefaultRegistry, panics if there is an error
 	MustRegisterType = DefaultRegistry.MustRegisterType
-	// RegisterType registers the TypeDefinition to the DefaultRegistry
+	// RegisterType registers the Definition to the DefaultRegistry
 	RegisterType = DefaultRegistry.RegisterType
 	// ValidateAny validates the data with the DefaultRegistry
 	ValidateAny = DefaultRegistry.ValidateAny

@@ -183,11 +183,11 @@ func (r RuleTypeError) Error() string { return r.RuleName + ": " + r.TemplateErr
 func TypeCheck(ruleName string, typ, expectedType reflect.Type, kindString string) *RuleTypeError {
 	// Validator types are stored indirected, so indirect the incoming type--data may be a pointer
 	typ = indirectType(typ)
-	if typ != expectedType {
-		if kindString != "" {
-			kindString += " "
-		}
-		return NewRuleTypeError(ruleName, typ, "is not matching "+kindString+"of type "+expectedType.String())
+	if typ == expectedType {
+		return nil
 	}
-	return nil
+	if kindString != "" {
+		kindString = " " + kindString + " of"
+	}
+	return NewRuleTypeError(ruleName, typ, "is not matching"+kindString+" type "+expectedType.String())
 }

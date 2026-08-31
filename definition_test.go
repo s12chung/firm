@@ -26,6 +26,8 @@ func TestDefinition_ValidatesSelf(t *testing.T) {
 	require.Panics(func() {
 		definition.ValidatesSelf()
 	})
+	// an empty call still counts as called
+	require.Panics(func() { NewDefinition[Child]().ValidatesSelf().ValidatesSelf() })
 }
 
 func TestDefinition_Validates(t *testing.T) {
@@ -36,7 +38,15 @@ func TestDefinition_Validates(t *testing.T) {
 	require.Equal(ruleMap, definition.RuleMap())
 
 	require.Panics(func() { definition.Validates(RuleMap{}) })
-	require.Panics(func() { NewDefinition[Child]().Validates(RuleMap{"DoesNotExist": {}}) })
-	require.Panics(func() { NewDefinition[Child]().Validates(RuleMap{"private": {}}) })
-	require.Panics(func() { NewDefinition[int]().Validates(RuleMap{"Str": {}}) }) // non-struct
+	// an empty RuleMap still counts as called
+	require.Panics(func() { NewDefinition[Child]().Validates(RuleMap{}).Validates(RuleMap{}) })
+
+	// field checks error at RegisterType() via FieldsAnyWithErr()
+	registry := &Registry{}
+	err := registry.RegisterType(NewDefinition[Child]().Validates(RuleMap{"DoesNotExist": {}}))
+	require.EqualError(err, "RegisterType() with type firm.Child: Fields: field, DoesNotExist, not found in type: firm.Child")
+	err = registry.RegisterType(NewDefinition[Child]().Validates(RuleMap{"private": {}}))
+	require.EqualError(err, "RegisterType() with type firm.Child: Fields: field, private, is unexported in type: firm.Child")
+	err = registry.RegisterType(NewDefinition[int]().Validates(RuleMap{"Str": {}})) // non-struct
+	require.EqualError(err, "RegisterType() with type int: Fields: type, int, is not a Struct")
 }
