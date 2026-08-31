@@ -61,7 +61,7 @@ type RuleBasic interface {
 	ErrorMap() ErrorMap
 }
 
-// RuleTyped is BasicRule that's typed
+// RuleTyped is a RuleBasic that's typed
 type RuleTyped[T any] interface {
 	RuleBasic
 	Validate(data T) ErrorMap

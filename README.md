@@ -356,7 +356,10 @@ In detail, `firm.Registry` can't infer the type from `nil` when `ValidateAny(nil
 2. Given the type, `firm.RegistryBacker` always has access to `Config.Queries`'s validator
 3. So `Config.Queries`'s rules are applied to that field's elements (`Query` structs)
 
-All constructors of built-in **recursive** validators (`Fields()`, `Elems()`, `Keys()`, `KeyValues()`, typed/non-typed, with/without errors, etc.) also do Step 1 above. To cover the gotcha, pass `firm.RegistryBacker` into these validators **directly**. Recursion cycles checks are also done in built-in **recursive** validators.
+All constructors of built-in **recursive** validators (`Fields()`, `Elems()`, `Keys()`, `KeyValues()`, typed/non-typed, with/without errors, etc.):
+
+1. Do Step 1 above. To cover the gotcha, pass `firm.RegistryBacker` into these validators **directly**
+2. Implement `AllRules() []firm.Rule` of the `firm.RuleLister` interface, which allows for recursion cycle checks through `MustRegisterType()`
 
 ### Slices and Arrays
 

@@ -76,10 +76,8 @@ func (s FieldsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap E
 		return
 	}
 	for fieldName, rules := range s.ruleMap {
-		//nolint:godox // want the comment
-		field, _ := value.Type().FieldByName(fieldName) // TODO: cache field indexes at FieldsAnyWithErr to avoid per-validation lookups?
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, field.Name), errorMap, rules)
+		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, fieldName), errorMap, rules)
 	}
 }
 

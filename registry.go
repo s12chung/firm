@@ -174,8 +174,8 @@ func (b RegistryBacker) ValidateMerge(value reflect.Value, key string, errorMap 
 // TypeCheck checks whether the type is valid for the Rule
 func (b RegistryBacker) TypeCheck(typ reflect.Type) *RuleTypeError { return b.Registry.TypeCheck(typ) }
 
-// ruleLister is traversed by checkRecursion--implement AllRules() on a custom Validator to join the cycle check
-type ruleLister interface{ AllRules() []Rule }
+// RuleLister is traversed by checkRecursion--implement AllRules() on a custom Validator to join the cycle check
+type RuleLister interface{ AllRules() []Rule }
 
 // backerTarget is the validation edge a RegistryBacker traverses: the type validated in a registry
 type backerTarget struct {
@@ -203,7 +203,7 @@ func (c recursionCheck) walk(rules []Rule) error {
 			}
 			continue
 		}
-		if lister, ok := rule.(ruleLister); ok {
+		if lister, ok := rule.(RuleLister); ok {
 			if err := c.walk(lister.AllRules()); err != nil {
 				return err
 			}
@@ -221,7 +221,7 @@ func (c recursionCheck) walkBacker(backer RegistryBacker) error {
 		return nil
 	}
 	c.visited[target] = true
-	lister, ok := backer.Registry.Validator(backer.typ).(ruleLister)
+	lister, ok := backer.Registry.Validator(backer.typ).(RuleLister)
 	if !ok {
 		return nil
 	}
