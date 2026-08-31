@@ -168,11 +168,13 @@ type backerTarget struct {
 	typ      reflect.Type
 }
 
+const maxRecursionDepth = 100
+
 // checkRecursion errors if backing from rules of the registering typ reaches the typ again,
 // as validation would infinitely recurse
 func checkRecursion(r *Registry, typ reflect.Type, rules []Rule) error {
 	check := recursionCheck{origin: backerTarget{r, typ}, visited: map[backerTarget]bool{}}
-	return check.walk(rules)
+	return check.walk(rules, 0)
 }
 
 type recursionCheck struct {
@@ -180,16 +182,20 @@ type recursionCheck struct {
 	visited map[backerTarget]bool
 }
 
-func (c recursionCheck) walk(rules []Rule) error {
+func (c recursionCheck) walk(rules []Rule, depth int) error {
+	if depth > maxRecursionDepth {
+		return fmt.Errorf("Registry: recursion check exceeds depth %v on type, %v--check for a cycle in a custom RuleLister's AllRules()",
+			maxRecursionDepth, c.origin.typ.String())
+	}
 	for _, rule := range rules {
 		if backer, ok := rule.(RegistryBacker); ok {
-			if err := c.walkBacker(backer); err != nil {
+			if err := c.walkBacker(backer, depth); err != nil {
 				return err
 			}
 			continue
 		}
 		if lister, ok := rule.(RuleLister); ok {
-			if err := c.walk(lister.AllRules()); err != nil {
+			if err := c.walk(lister.AllRules(), depth+1); err != nil {
 				return err
 			}
 		}
@@ -197,7 +203,7 @@ func (c recursionCheck) walk(rules []Rule) error {
 	return nil
 }
 
-func (c recursionCheck) walkBacker(backer RegistryBacker) error {
+func (c recursionCheck) walkBacker(backer RegistryBacker, depth int) error {
 	target := backerTarget{backer.Registry, backer.typ}
 	if target == c.origin {
 		return fmt.Errorf("Registry: type, %v, recurses back to itself via RegistryBacker", c.origin.typ.String())
@@ -210,5 +216,5 @@ func (c recursionCheck) walkBacker(backer RegistryBacker) error {
 	if !ok {
 		return nil
 	}
-	return c.walk(lister.AllRules())
+	return c.walk(lister.AllRules(), depth+1)
 }

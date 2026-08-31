@@ -113,7 +113,9 @@ func suffixErrorMap(err *TemplateError, keySuffixes []string) ErrorMap {
 	if err != nil && len(keySuffixes) > 0 {
 		expected = ErrorMap{}
 		for _, key := range keySuffixes {
-			expected[ErrorKey(key)] = *err
+			keyedErr := *err
+			keyedErr.ErrorKey = ErrorKey(key)
+			expected[ErrorKey(key)] = keyedErr
 		}
 	}
 	return expected
@@ -127,10 +129,10 @@ func testValidateAllExpected(t *testing.T, skipValidate bool, validator Validato
 	validateExpected = validateExpected.ToNil()
 
 	if !skipValidate {
-		require.Equal(validateExpected.Finish(), validator.ValidateAny(data))
+		require.Equal(validateExpected, validator.ValidateAny(data))
 	}
 	indirectValue := indirect(reflect.ValueOf(data))
-	require.Equal(validateValueExpected.Finish(), validator.ValidateValue(indirectValue))
+	require.Equal(validateValueExpected, validator.ValidateValue(indirectValue))
 
 	errorKey := "pkger.Mover.Parent"
 	errorMap := ErrorMap{"Existing": TemplateError{}}

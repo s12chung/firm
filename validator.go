@@ -283,7 +283,7 @@ func ImplValidateValue(validator Validator, value reflect.Value) ErrorMap {
 	MustValidValue(value)
 	errorMap := ErrorMap{}
 	validator.ValidateMerge(value, "", errorMap)
-	return errorMap.Finish()
+	return errorMap.ToNil()
 }
 
 // ImplValidateMerge validates the data value with the rules, also doing a merge with the errorMap
@@ -326,7 +326,7 @@ func ImplValidate(validator Validator, data any) ErrorMap {
 	}
 	errorMap := ErrorMap{}
 	validator.ValidateMerge(value, value.Type().String(), errorMap)
-	return errorMap.Finish()
+	return errorMap.ToNil()
 }
 
 // validateValueResult indirects and TypeChecks the validator on the value, then merges with a key of
@@ -349,7 +349,7 @@ func validateValueResult(validator Validator, value reflect.Value) ErrorMap {
 	}
 	errorMap := ErrorMap{}
 	validator.ValidateMerge(value, key, errorMap)
-	return errorMap.Finish()
+	return errorMap.ToNil()
 }
 
 // TypeCheckRules TypeChecks each rule against the indirected typ, wrapping any error with errContext,

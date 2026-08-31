@@ -22,7 +22,7 @@ type Attr struct {
 	Rule firm.RuleBasic
 }
 
-// ValidateValue runs all the rules after .Attr is called (assumes TypeCheck is called)
+// ValidateValue validates the Attribute value with the Rule (assumes TypeCheck is called)
 func (a Attr) ValidateValue(value reflect.Value) firm.ErrorMap {
 	return a.errorMap(a.Rule.ValidateValue(a.Of.Get(value)))
 }

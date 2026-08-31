@@ -14,11 +14,11 @@ import (
 type ErrorMap map[ErrorKey]TemplateError
 
 func (e ErrorMap) Error() string {
-	errors := make([]string, len(e))
+	errs := make([]string, len(e))
 	for i, k := range e.sortedKeys() {
-		errors[i] = string(k) + ": " + e[k].Error()
+		errs[i] = string(k) + ": " + e[k].Error()
 	}
-	return strings.Join(errors, ", ")
+	return strings.Join(errs, ", ")
 }
 
 func (e ErrorMap) sortedKeys() []ErrorKey {
@@ -47,15 +47,6 @@ func (e ErrorMap) ToNil() ErrorMap {
 		return nil
 	}
 	return e
-}
-
-// Finish finishes the ErrorMap for consumption by filling in the typeName and ValueName
-func (e ErrorMap) Finish() ErrorMap {
-	for k, v := range e {
-		v.ErrorKey = k
-		e[k] = v
-	}
-	return e.ToNil()
 }
 
 // TemplateError is an error that contains a key matching a field or "itself" as a Value, a golang template, and template fields

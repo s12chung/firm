@@ -17,7 +17,7 @@ func (n Not) ValidateValue(value reflect.Value) firm.ErrorMap {
 	return nil
 }
 
-// TypeCheck checks whether the type is valid for the Attribute
+// TypeCheck checks whether the type is valid for the Rule
 func (n Not) TypeCheck(typ reflect.Type) *firm.RuleTypeError { return n.Rule.TypeCheck(typ) }
 
 // ErrorMap returns the ErrorMap returned from ValidateValue

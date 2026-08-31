@@ -15,12 +15,12 @@ func TestNotFoundRule_ValidateValue(t *testing.T) {
 		TemplateFields: map[string]string{"ValueTypeName": "int"},
 	}}
 	require.Equal(typed, NotFoundRule{}.ValidateValue(reflect.ValueOf(1)))
-	require.Equal("NotFound: value type, int, not found in Registry", typed.Finish().Error())
+	require.Equal("NotFound: value type, int, not found in Registry", typed.Error())
 
 	require.Equal(NotFoundRule{}.ErrorMap(), NotFoundRule{}.ValidateValue(reflect.Value{}))
-	require.Equal("NotFound: value type, NoType, not found in Registry", NotFoundRule{}.ErrorMap().Finish().Error())
+	require.Equal("NotFound: value type, NoType, not found in Registry", NotFoundRule{}.ErrorMap().Error())
 
 	// nilType stand-ins are not named
 	require.Equal(NotFoundRule{}.ErrorMap(), NotFoundRule{}.ValidateValue(nilValue))
-	require.Equal("NotFound: value type, NoType, not found in Registry", NotFoundRule{}.ValidateValue(nilValue).Finish().Error())
+	require.Equal("NotFound: value type, NoType, not found in Registry", NotFoundRule{}.ValidateValue(nilValue).Error())
 }

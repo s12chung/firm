@@ -70,28 +70,6 @@ var errTemplateError = TemplateError{
 
 func fullTemplate() TemplateError { return errTemplateError }
 
-func TestErrorMap_Finish(t *testing.T) {
-	tcs := []struct {
-		name     string
-		errorMap ErrorMap
-		expected *TemplateError
-	}{
-		{name: "not_empty", errorMap: ErrorMap{fullTemplateErrorKey: TemplateError{}},
-			expected: &TemplateError{ErrorKey: fullTemplateErrorKey}},
-		{name: "empty", errorMap: ErrorMap{}, expected: nil},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) {
-			require := require.New(t)
-			var expected ErrorMap
-			if tc.expected != nil {
-				expected = ErrorMap{fullTemplateErrorKey: *tc.expected}
-			}
-			require.Equal(expected, tc.errorMap.Finish())
-		})
-	}
-}
-
 func TestTemplateError_Error(t *testing.T) {
 	tcs := []struct {
 		name     string

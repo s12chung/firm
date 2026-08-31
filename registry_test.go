@@ -58,6 +58,15 @@ func (c cycleOpaqueVldr) ValidateMerge(value reflect.Value, key string, errorMap
 	ImplValidateMerge(value, key, errorMap, []Rule{c.Rule})
 }
 
+// cycleSelfLister's AllRules() returns itself--a custom RuleLister cycle, cut by maxRecursionDepth
+type cycleSelfLister struct{}
+
+func (c cycleSelfLister) AllRules() []Rule { return []Rule{c} }
+
+func (c cycleSelfLister) ValidateValue(_ reflect.Value) ErrorMap { return nil }
+
+func (c cycleSelfLister) TypeCheck(_ reflect.Type) *RuleTypeError { return nil }
+
 func TestRegistry_RegisterType(t *testing.T) {
 	require := require.New(t)
 
@@ -113,7 +122,7 @@ func notFoundError(data any) ErrorMap {
 		key = "" // nilType stand-ins are not named
 	}
 	DefaultValidator.ValidateMerge(value, key, errorMap)
-	return errorMap.Finish()
+	return errorMap.ToNil()
 }
 
 // nolint:funlen // a bunch of test cases
@@ -401,6 +410,15 @@ func TestRegistry_RegisterType_Recursion(t *testing.T) {
 		// without AllRules(), the wrapped validator is opaque to the cycle check
 		require.NoError(registry.RegisterType(NewDefinition[cycleParent]().
 			Validates(RuleMap{"Child": {cycleOpaqueVldr{Rule: Fields[cycleChild](RuleMap{"Parent": {registry.Backed()}})}}})))
+	})
+
+	t.Run("custom_rule_lister_cycle", func(t *testing.T) {
+		require := require.New(t)
+		registry := &Registry{}
+		err := registry.RegisterType(NewDefinition[cycleSelfLister]().ValidatesSelf(cycleSelfLister{}))
+		require.EqualError(err, "RegisterType() with type firm.cycleSelfLister: "+
+			"Registry: recursion check exceeds depth 100 on type, firm.cycleSelfLister--"+
+			"check for a cycle in a custom RuleLister's AllRules()")
 	})
 }
 

@@ -1082,7 +1082,6 @@ func TestFieldsAnyVldr_NilEmbeddedPointerField(t *testing.T) {
 	// Child: nil is the embedded pointer field, so the Validates field's value is invalid and never reaches the rule
 	expected := ErrorMap{}
 	ErrInvalidValue().MergeInto("Validates", expected)
-	expected = expected.Finish()
 	require.Equal(expected, validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
 	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
 }
