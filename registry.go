@@ -3,7 +3,6 @@ package firm
 import (
 	"fmt"
 	"reflect"
-	"slices"
 )
 
 // Registry registers types to find the right validator to validate with.
@@ -50,8 +49,7 @@ func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 		if err != nil {
 			return nil, err
 		}
-		// clone for safety
-		selfRules = append(slices.Clone(selfRules), fieldsV)
+		selfRules = append(selfRules, fieldsV)
 	}
 	v, err := ValueAnyWithErr(typ, selfRules...)
 	if err != nil {

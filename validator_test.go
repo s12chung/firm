@@ -1510,3 +1510,21 @@ func TestRuleVldr_ValidateAll(t *testing.T) {
 		})
 	}
 }
+
+func TestRuleGettersReturnCopies(t *testing.T) {
+	fieldsV := Fields[sliceValidatorElement](RuleMap{"Int": {presentRule{}}})
+	elemsV := Elems[[]sliceValidatorElement](presentRule{})
+	valueV := Value[int](presentRule{})
+
+	t.Run("fields_rule_map", func(t *testing.T) {
+		ruleMap := fieldsV.RuleMap()
+		require.Equal(t, []Rule{presentRule{}}, ruleMap["Int"])
+		testRulesGetterIsolation(t, func() []Rule { return fieldsV.RuleMap()["Int"] })
+	})
+	t.Run("elems_element_rules", func(t *testing.T) {
+		testRulesGetterIsolation(t, elemsV.ElementRules)
+	})
+	t.Run("value_rules", func(t *testing.T) {
+		testRulesGetterIsolation(t, valueV.Rules)
+	})
+}

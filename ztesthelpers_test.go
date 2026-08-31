@@ -3,6 +3,7 @@ package firm
 import (
 	"maps"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,6 +28,28 @@ func (o onlyKindRule) TypeCheck(typ reflect.Type) *RuleTypeError {
 		return NewRuleTypeError("onlyKindRule", typ, "is not "+o.kind.String())
 	}
 	return nil
+}
+
+type mutantRule struct{}
+
+func (mutantRule) ValidateValue(_ reflect.Value) ErrorMap {
+	return ErrorMap{"mutantRule": TemplateError{Template: "mutant rule ran"}}
+}
+func (mutantRule) TypeCheck(_ reflect.Type) *RuleTypeError { return nil }
+
+// testRulesGetterIsolation asserts mutating a getter's returned rules, via index assignment or
+// reslice-append (both write through shared backing arrays), does not affect the validator's rules
+func testRulesGetterIsolation(t *testing.T, getter func() []Rule) {
+	t.Helper()
+	require := require.New(t)
+	expected := slices.Clone(getter())
+	require.NotEmpty(expected)
+
+	rules := getter()
+	rules[0] = mutantRule{}
+	_ = append(rules[:0], mutantRule{})
+
+	require.Equal(expected, getter())
 }
 
 type presentRule struct{}

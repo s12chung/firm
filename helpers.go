@@ -22,6 +22,14 @@ func indirectType(typ reflect.Type) reflect.Type {
 	return typ
 }
 
+func copyRuleMap(ruleMap RuleMap) RuleMap {
+	copied := make(RuleMap, len(ruleMap))
+	for fieldName, rules := range ruleMap {
+		copied[fieldName] = slices.Clone(rules)
+	}
+	return copied
+}
+
 // fieldByIndex returns the field Value corresponding to the index
 func fieldByIndex(value reflect.Value, index []int) reflect.Value {
 	for i, x := range index {

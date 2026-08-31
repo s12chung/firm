@@ -436,3 +436,9 @@ func testMapTypeCheck(t *testing.T, validator Validator, typ reflect.Type, ruleN
 		})
 	}
 }
+
+func TestMapRuleGettersReturnCopies(t *testing.T) {
+	testRulesGetterIsolation(t, keysValidator.KeyRules)
+	testRulesGetterIsolation(t, Values[map[int]sliceValidatorElement](presentRule{}).ValueRules)
+	testRulesGetterIsolation(t, KeyValues[map[int]sliceValidatorElement](presentRule{}).KeyValueRules)
+}

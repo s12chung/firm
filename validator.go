@@ -3,8 +3,8 @@ package firm
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"reflect"
+	"slices"
 )
 
 // Fields returns a new FieldsVldr, panics if there is an error
@@ -89,12 +89,8 @@ func (s FieldsAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 	return TypeCheck("FieldsAnyVldr", typ, s.typ, "Struct")
 }
 
-// RuleMap returns the rules mapped to each field
-func (s FieldsAnyVldr) RuleMap() RuleMap {
-	ruleMap := RuleMap{}
-	maps.Copy(ruleMap, s.ruleMap)
-	return ruleMap
-}
+// RuleMap returns a copy of the rules mapped to each field
+func (s FieldsAnyVldr) RuleMap() RuleMap { return copyRuleMap(s.ruleMap) }
 
 // AllRules returns all rules of the validator, the rules of every field
 func (s FieldsAnyVldr) AllRules() []Rule {
@@ -170,11 +166,11 @@ func (s ElemsAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 	return TypeCheck("ElemsAnyVldr", typ, s.typ, "Slice or Array")
 }
 
-// ElementRules returns the rules each element in the Slice or Array
-func (s ElemsAnyVldr) ElementRules() []Rule { return s.elementRules }
+// ElementRules returns a copy of the rules each element in the Slice or Array
+func (s ElemsAnyVldr) ElementRules() []Rule { return slices.Clone(s.elementRules) }
 
 // AllRules returns all rules of the validator, the rules of each element
-func (s ElemsAnyVldr) AllRules() []Rule { return s.elementRules }
+func (s ElemsAnyVldr) AllRules() []Rule { return s.ElementRules() }
 
 // Value returns a new ValueVldr, panics if there is an error
 func Value[T any](rules ...Rule) ValueVldr[T] {
@@ -237,11 +233,11 @@ func (v ValueAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 	return TypeCheck("ValueAnyVldr", typ, v.typ, "")
 }
 
-// Rules returns the rules for ValueAnyVldr
-func (v ValueAnyVldr) Rules() []Rule { return v.rules }
+// Rules returns a copy of the rules for ValueAnyVldr
+func (v ValueAnyVldr) Rules() []Rule { return slices.Clone(v.rules) }
 
 // AllRules returns all rules of the validator
-func (v ValueAnyVldr) AllRules() []Rule { return v.rules }
+func (v ValueAnyVldr) AllRules() []Rule { return v.Rules() }
 
 // RuleVldr is a Validator wrapper around Rule
 type RuleVldr struct{ Rule }

@@ -2,6 +2,7 @@ package firm
 
 import (
 	"reflect"
+	"slices"
 )
 
 // Keys returns a new KeysVldr, panics if there is an error
@@ -70,11 +71,11 @@ func (s KeysAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 	return TypeCheck("KeysAnyVldr", typ, s.typ, "Map")
 }
 
-// KeyRules returns the rules for each key in the Map
-func (s KeysAnyVldr) KeyRules() []Rule { return s.keyRules }
+// KeyRules returns a copy of the rules for each key in the Map
+func (s KeysAnyVldr) KeyRules() []Rule { return slices.Clone(s.keyRules) }
 
 // AllRules returns all rules of the validator, the rules of each key
-func (s KeysAnyVldr) AllRules() []Rule { return s.keyRules }
+func (s KeysAnyVldr) AllRules() []Rule { return s.KeyRules() }
 
 // Values returns a new ValuesVldr, panics if there is an error
 func Values[T map[K]V, K comparable, V any](valueRules ...Rule) ValuesVldr[T, K, V] {
@@ -144,11 +145,11 @@ func (s ValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 	return TypeCheck("ValuesAnyVldr", typ, s.typ, "Map")
 }
 
-// ValueRules returns the rules for each value in the Map
-func (s ValuesAnyVldr) ValueRules() []Rule { return s.valueRules }
+// ValueRules returns a copy of the rules for each value in the Map
+func (s ValuesAnyVldr) ValueRules() []Rule { return slices.Clone(s.valueRules) }
 
 // AllRules returns all rules of the validator, the rules of each value
-func (s ValuesAnyVldr) AllRules() []Rule { return s.valueRules }
+func (s ValuesAnyVldr) AllRules() []Rule { return s.ValueRules() }
 
 // KeyValues returns a new KeyValuesVldr, panics if there is an error
 func KeyValues[T map[K]V, K comparable, V any](keyValueRules ...Rule) KeyValuesVldr[T, K, V] {
@@ -219,8 +220,8 @@ func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 	return TypeCheck("KeyValuesAnyVldr", typ, s.typ, "Map")
 }
 
-// KeyValueRules returns the rules for each key-value pair in the Map
-func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return s.keyValueRules }
+// KeyValueRules returns a copy of the rules for each key-value pair in the Map
+func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return slices.Clone(s.keyValueRules) }
 
 // AllRules returns all rules of the validator, the rules of each key-value pair
-func (s KeyValuesAnyVldr) AllRules() []Rule { return s.keyValueRules }
+func (s KeyValuesAnyVldr) AllRules() []Rule { return s.KeyValueRules() }

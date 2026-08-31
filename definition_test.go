@@ -50,3 +50,20 @@ func TestDefinition_Validates(t *testing.T) {
 	err = registry.RegisterType(NewDefinition[int]().Validates(RuleMap{"Str": {}})) // non-struct
 	require.EqualError(err, "RegisterType() with type int: Fields: type, int, is not a Struct")
 }
+
+func TestDefinition_GettersReturnCopies(t *testing.T) {
+	definition := NewDefinition[Child]().
+		ValidatesSelf(presentRule{}).
+		Validates(RuleMap{"Validates": {presentRule{}}})
+
+	t.Run("self_rules", func(t *testing.T) {
+		testRulesGetterIsolation(t, definition.SelfRules)
+	})
+	t.Run("rule_map", func(t *testing.T) {
+		ruleMap := definition.RuleMap()
+		require.Equal(t, []Rule{presentRule{}}, ruleMap["Validates"])
+		ruleMap["Validates"][0] = mutantRule{}
+		ruleMap["New"] = []Rule{mutantRule{}}
+		require.Equal(t, RuleMap{"Validates": {presentRule{}}}, definition.RuleMap())
+	})
+}

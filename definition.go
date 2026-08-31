@@ -3,6 +3,7 @@ package firm
 import (
 	"fmt"
 	"reflect"
+	"slices"
 )
 
 // NewDefinition returns a new Definition. Pointer types are indirected to their value type.
@@ -55,8 +56,8 @@ func (s *Definition) Validates(ruleMap RuleMap) *Definition {
 // Type returns the type for the definition
 func (s *Definition) Type() reflect.Type { return s.typ }
 
-// SelfRules return the rules that apply to "itself" as a Value
-func (s *Definition) SelfRules() []Rule { return s.selfRules }
+// SelfRules returns a copy of the rules that apply to "itself" as a Value
+func (s *Definition) SelfRules() []Rule { return slices.Clone(s.selfRules) }
 
-// RuleMap returns the map of rules for the structure
-func (s *Definition) RuleMap() RuleMap { return s.ruleMap }
+// RuleMap returns a copy of the rules mapped to each field
+func (s *Definition) RuleMap() RuleMap { return copyRuleMap(s.ruleMap) }
