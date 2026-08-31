@@ -91,6 +91,7 @@ func (r *Registry) TypeCheck(typ reflect.Type) *RuleTypeError {
 
 // ValidateMerge validates the data value with the correct validator, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (r *Registry) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	MustValidValue(value)
 	r.DefaultedValidator(value.Type()).ValidateMerge(value, key, errorMap)
 }
 

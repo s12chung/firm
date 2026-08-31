@@ -126,14 +126,14 @@ func TestCustomValidatorPkg(t *testing.T) {
 	// ImplValidateValue - safe value, assumes TypeCheck is called
 	require.Equal(firm.ErrorMap{"Greater": keyed("Greater", greaterErr)}, v.ValidateValue(reflect.ValueOf(-1)))
 	require.Nil(v.ValidateValue(reflect.ValueOf(1)))
+	require.Panics(func() { _ = v.ValidateValue(reflect.Value{}) }) // safe values are expected
 
 	// ImplValidateMerge - safe value, assumes TypeCheck is called
 	errorMap := firm.ErrorMap{}
 	v.ValidateMerge(reflect.ValueOf(-1), "Positive", errorMap)
-	v.ValidateMerge(reflect.Value{}, "Positive", errorMap)
+	require.Panics(func() { v.ValidateMerge(reflect.Value{}, "Positive", errorMap) }) // safe values are expected
 	require.Equal(firm.ErrorMap{
 		"Positive.Greater": keyed("Positive.Greater", greaterErr),
-		"Positive.Invalid": keyed("Positive.Invalid", firm.TemplateError{Template: "is not valid"}),
 	}, errorMap)
 }
 

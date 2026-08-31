@@ -229,8 +229,8 @@ func newKeyValueRule[K comparable, V any](keyRules, valueRules []Rule) keyValueR
 func (e keyValueRule[K, V]) ValidateValue(value reflect.Value) ErrorMap {
 	errorMap := ErrorMap{}
 	for iter := value.MapRange(); iter.Next(); {
-		ImplValidateMerge(indirect(iter.Key()), "Key", errorMap, e.keyRules)
-		ImplValidateMerge(indirect(iter.Value()), "Value", errorMap, e.valueRules)
+		ImplValidateMergeIndirected(iter.Key(), "Key", errorMap, e.keyRules)
+		ImplValidateMergeIndirected(iter.Value(), "Value", errorMap, e.valueRules)
 	}
 	return errorMap.ToNil()
 }

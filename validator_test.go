@@ -1528,3 +1528,40 @@ func TestRuleGettersReturnCopies(t *testing.T) {
 		testRulesGetterIsolation(t, valueV.Rules)
 	})
 }
+
+// TestInvalidValuePanics asserts invalid values into ValidateValue()/ValidateMerge() panic with
+// safeValuePanic, instead of opaque reflect panics
+func TestInvalidValuePanics(t *testing.T) {
+	require := require.New(t)
+
+	registry := &Registry{}
+	require.NoError(registry.RegisterType(NewDefinition[Child]().ValidatesSelf(presentRule{})))
+	backer := registry.Backed()
+
+	t.Run("registry", func(*testing.T) {
+		require.PanicsWithValue(safeValuePanic, func() { _ = registry.ValidateValue(reflect.Value{}) })
+		require.PanicsWithValue(safeValuePanic, func() { registry.ValidateMerge(reflect.Value{}, "", ErrorMap{}) })
+	})
+	t.Run("registry_backer", func(*testing.T) {
+		require.PanicsWithValue(safeValuePanic, func() { _ = backer.ValidateValue(reflect.Value{}) })
+		require.PanicsWithValue(safeValuePanic, func() { backer.ValidateMerge(reflect.Value{}, "", ErrorMap{}) })
+	})
+	t.Run("validators", func(*testing.T) {
+		validators := []Validator{
+			Fields[Child](RuleMap{"Validates": {presentRule{}}}),
+			Elems[[]Child](presentRule{}),
+			Value[Child](presentRule{}),
+			Keys[map[string]Child](presentRule{}),
+			Values[map[string]Child](presentRule{}),
+			KeyValues[map[string]Child](presentRule{}),
+			RuleVldr{Rule: presentRule{}},
+		}
+		for _, validator := range validators {
+			require.PanicsWithValue(safeValuePanic, func() { _ = validator.ValidateValue(reflect.Value{}) })
+			require.PanicsWithValue(safeValuePanic, func() { validator.ValidateMerge(reflect.Value{}, "", ErrorMap{}) })
+		}
+	})
+	t.Run("impl_helpers", func(*testing.T) {
+		require.PanicsWithValue(safeValuePanic, func() { ImplValidateMerge(reflect.Value{}, "", ErrorMap{}, nil) })
+	})
+}

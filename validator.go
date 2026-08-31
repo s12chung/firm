@@ -78,9 +78,9 @@ func (s FieldsAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s FieldsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	MustValidValue(value)
 	for fieldName, rules := range s.ruleMap {
-		// indirect to ensure passing a non-pointer down to a Rule
-		ImplValidateMerge(indirect(fieldByIndex(value, s.fieldIndexes[fieldName])), joinKeys(key, fieldName), errorMap, rules)
+		ImplValidateMergeIndirected(fieldByIndex(value, s.fieldIndexes[fieldName]), joinKeys(key, fieldName), errorMap, rules)
 	}
 }
 
@@ -155,9 +155,9 @@ func (s ElemsAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return ImplV
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s ElemsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	MustValidValue(value)
 	for i := range value.Len() {
-		// indirect to ensure passing a non-pointer down to a Rule
-		ImplValidateMerge(indirect(value.Index(i)), joinKeys(key, sliceErrorKey(i)), errorMap, s.elementRules)
+		ImplValidateMergeIndirected(value.Index(i), joinKeys(key, sliceErrorKey(i)), errorMap, s.elementRules)
 	}
 }
 
@@ -278,24 +278,42 @@ func ImplValidateAny(validator Validator, data any) ErrorMap {
 }
 
 // ImplValidateValue validates the data value with the validator (assumes TypeCheck is called),
-// the implementation of Rule.ValidateValue()
+// the implementation of Rule.ValidateValue(). Panics on an invalid value--safe values are expected
 func ImplValidateValue(validator Validator, value reflect.Value) ErrorMap {
+	MustValidValue(value)
 	errorMap := ErrorMap{}
 	validator.ValidateMerge(value, "", errorMap)
 	return errorMap.Finish()
 }
 
 // ImplValidateMerge validates the data value with the rules, also doing a merge with the errorMap
-// (assumes TypeCheck is called), the implementation of Validator.ValidateMerge()
+// (assumes TypeCheck is called), the implementation of Validator.ValidateMerge(). Panics on an invalid value.
 func ImplValidateMerge(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
-	// invalid values (e.g. from indirecting a nil pointer) never reach Rules
+	MustValidValue(value)
+	for _, rule := range rules {
+		rule.ValidateValue(value).MergeInto(key, errorMap)
+	}
+}
+
+const safeValuePanic = "invalid value--safe values are expected, see the Types, Pointers, and Safe Values section in the README"
+
+// MustValidValue panics on an invalid value--a safe values contract violation. Implementations that
+// recurse in ValidateMerge(), using the value before delegating (e.g. over fields or elements),
+// call it on entry; implementations calling ImplValidateMerge() directly don't need to
+func MustValidValue(value reflect.Value) {
+	if !value.IsValid() {
+		panic(safeValuePanic)
+	}
+}
+
+// ImplValidateMergeIndirected calls ImplValidateMerge() after indirecting and checking if it is valid
+func ImplValidateMergeIndirected(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
+	value = indirect(value)
 	if !value.IsValid() {
 		mergeInvalidValue(key, errorMap)
 		return
 	}
-	for _, rule := range rules {
-		rule.ValidateValue(value).MergeInto(key, errorMap)
-	}
+	ImplValidateMerge(value, key, errorMap, rules)
 }
 
 // ImplValidate validates the data with the validator, the implementation of ValidatorTyped.Validate()--

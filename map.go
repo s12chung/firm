@@ -59,10 +59,10 @@ func (s KeysAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return ImplVa
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s KeysAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	MustValidValue(value)
 	for iter := value.MapRange(); iter.Next(); {
-		// indirect to ensure passing a non-pointer down to a Rule
 		keyValue := indirect(iter.Key())
-		ImplValidateMerge(keyValue, joinKeys(key, mapErrorKey(keyValue)), errorMap, s.keyRules)
+		ImplValidateMergeIndirected(keyValue, joinKeys(key, mapErrorKey(keyValue)), errorMap, s.keyRules)
 	}
 }
 
@@ -133,10 +133,10 @@ func (s ValuesAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s ValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	MustValidValue(value)
 	for iter := value.MapRange(); iter.Next(); {
-		// indirect to ensure passing a non-pointer down to a Rule
 		keyValue := indirect(iter.Key())
-		ImplValidateMerge(indirect(iter.Value()), joinKeys(key, mapErrorKey(keyValue)), errorMap, s.valueRules)
+		ImplValidateMergeIndirected(iter.Value(), joinKeys(key, mapErrorKey(keyValue)), errorMap, s.valueRules)
 	}
 }
 
@@ -207,6 +207,7 @@ func (s KeyValuesAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s KeyValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	MustValidValue(value)
 	for iter := value.MapRange(); iter.Next(); {
 		// passed down as a Map with only 1 key-value pair
 		keyValue := reflect.MakeMapWithSize(s.typ, 1)
