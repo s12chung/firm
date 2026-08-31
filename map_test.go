@@ -386,8 +386,8 @@ func testMapValidateAllTypes(t *testing.T, validator Validator, nilPtrData any) 
 		result ErrorMap
 	}{
 		{name: "not_map", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: errInvalidValue},
-		{name: "nil_pointer", data: nilPtrData, result: errInvalidValue},
+		{name: "invalid", data: nil, result: errInvalidValue()},
+		{name: "nil_pointer", data: nilPtrData, result: errInvalidValue()},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })

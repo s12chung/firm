@@ -52,7 +52,11 @@ func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 		}
 	}
 	if len(definition.RuleMap()) > 0 {
-		selfRules = append(selfRules, mustNewValidator(func() (FieldsAnyVldr, error) { return FieldsAnyWithErr(definition.typ, definition.RuleMap()) }))
+		fieldsV, err := FieldsAnyWithErr(definition.typ, definition.RuleMap())
+		if err != nil {
+			return nil, err
+		}
+		selfRules = append(selfRules, fieldsV)
 	}
 	v, err := ValueAnyWithErr(typ, selfRules...)
 	if err != nil {
@@ -170,7 +174,8 @@ func (b RegistryBacker) ValidateMerge(value reflect.Value, key string, errorMap 
 // TypeCheck checks whether the type is valid for the Rule
 func (b RegistryBacker) TypeCheck(typ reflect.Type) *RuleTypeError { return b.Registry.TypeCheck(typ) }
 
-type ruleLister interface{ allRules() []Rule }
+// ruleLister is traversed by checkRecursion--implement AllRules() on a custom Validator to join the cycle check
+type ruleLister interface{ AllRules() []Rule }
 
 // backerTarget is the validation edge a RegistryBacker traverses: the type validated in a registry
 type backerTarget struct {
@@ -199,7 +204,7 @@ func (c recursionCheck) walk(rules []Rule) error {
 			continue
 		}
 		if lister, ok := rule.(ruleLister); ok {
-			if err := c.walk(lister.allRules()); err != nil {
+			if err := c.walk(lister.AllRules()); err != nil {
 				return err
 			}
 		}
@@ -220,5 +225,5 @@ func (c recursionCheck) walkBacker(backer RegistryBacker) error {
 	if !ok {
 		return nil
 	}
-	return c.walk(lister.allRules())
+	return c.walk(lister.AllRules())
 }

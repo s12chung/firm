@@ -38,6 +38,26 @@ type cycleSliceChild struct {
 	Parent *cycleSliceParent
 }
 
+// cycleCustomVldr wraps a Rule like RuleVldr, exposing its rules via AllRules()
+type cycleCustomVldr struct{ Rule }
+
+func (c cycleCustomVldr) ValidateAny(data any) ErrorMap { return validateAny(c, data) }
+
+func (c cycleCustomVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	validateMerge(value, key, errorMap, []Rule{c.Rule})
+}
+
+func (c cycleCustomVldr) AllRules() []Rule { return []Rule{c.Rule} }
+
+// cycleOpaqueVldr is like cycleCustomVldr, but without AllRules()
+type cycleOpaqueVldr struct{ Rule }
+
+func (c cycleOpaqueVldr) ValidateAny(data any) ErrorMap { return validateAny(c, data) }
+
+func (c cycleOpaqueVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
+	validateMerge(value, key, errorMap, []Rule{c.Rule})
+}
+
 func TestRegistry_RegisterType(t *testing.T) {
 	require := require.New(t)
 
@@ -156,7 +176,7 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			}
 			if tc.name == "typed_nil" {
 				var data *registryParent
-				require.Equal(errInvalidValue, registry.ValidateAny(data))
+				require.Equal(errInvalidValue(), registry.ValidateAny(data))
 				return
 			}
 			if strings.HasPrefix(tc.name, "not_found") {
@@ -379,6 +399,27 @@ func TestRegistry_RegisterType_Recursion(t *testing.T) {
 		err := registry.RegisterType(NewDefinition[cycleSliceParent]().
 			Validates(RuleMap{"Children": {Elems[[]cycleSliceChild](registry.Backed())}}))
 		require.EqualError(err, cycleError("cycleSliceParent"))
+	})
+
+	t.Run("custom_validator", func(t *testing.T) {
+		require := require.New(t)
+		registry := &Registry{}
+		require.NoError(registry.RegisterType(NewDefinition[cycleChild]().
+			Validates(RuleMap{"Parent": {registry.Backed()}})))
+		// AllRules() exposes the wrapped Fields validator's stamped backer to the cycle check
+		err := registry.RegisterType(NewDefinition[cycleParent]().
+			Validates(RuleMap{"Child": {cycleCustomVldr{Rule: Fields[cycleChild](RuleMap{"Parent": {registry.Backed()}})}}}))
+		require.EqualError(err, cycleError("cycleParent"))
+	})
+
+	t.Run("custom_validator_without_all_rules", func(t *testing.T) {
+		require := require.New(t)
+		registry := &Registry{}
+		require.NoError(registry.RegisterType(NewDefinition[cycleChild]().
+			Validates(RuleMap{"Parent": {registry.Backed()}})))
+		// without AllRules(), the wrapped validator is opaque to the cycle check
+		require.NoError(registry.RegisterType(NewDefinition[cycleParent]().
+			Validates(RuleMap{"Child": {cycleOpaqueVldr{Rule: Fields[cycleChild](RuleMap{"Parent": {registry.Backed()}})}}})))
 	})
 }
 

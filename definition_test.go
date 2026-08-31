@@ -37,4 +37,5 @@ func TestDefinition_Validates(t *testing.T) {
 	require.Panics(func() { definition.Validates(RuleMap{}) })
 	require.Panics(func() { NewDefinition[Child]().Validates(RuleMap{"DoesNotExist": {}}) })
 	require.Panics(func() { NewDefinition[Child]().Validates(RuleMap{"private": {}}) })
+	require.Panics(func() { NewDefinition[int]().Validates(RuleMap{"Str": {}}) }) // non-struct
 }

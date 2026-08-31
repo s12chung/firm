@@ -38,6 +38,9 @@ func (s *Definition) Validates(ruleMap RuleMap) *Definition {
 	if len(s.ruleMap) != 0 {
 		panic(fmt.Sprintf("Validates() called twice in type: %v", s.typ.String()))
 	}
+	if s.typ.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("Validates() called with non-struct type: %v", s.typ.String()))
+	}
 	for fieldName := range ruleMap {
 		field, exists := s.typ.FieldByName(fieldName)
 		if !exists {

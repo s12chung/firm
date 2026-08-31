@@ -1047,8 +1047,8 @@ func TestFieldsAnyVldr_ValidateAll(t *testing.T) {
 		result ErrorMap
 	}{
 		{name: "not_struct", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: errInvalidValue},
-		{name: "nil_pointer", data: (*parent)(nil), result: errInvalidValue},
+		{name: "invalid", data: nil, result: errInvalidValue()},
+		{name: "nil_pointer", data: (*parent)(nil), result: errInvalidValue()},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
@@ -1244,8 +1244,8 @@ func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 		result ErrorMap
 	}{
 		{name: "not_slice", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: errInvalidValue},
-		{name: "nil_pointer", data: (*[]sliceValidatorElement)(nil), result: errInvalidValue},
+		{name: "invalid", data: nil, result: errInvalidValue()},
+		{name: "nil_pointer", data: (*[]sliceValidatorElement)(nil), result: errInvalidValue()},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
@@ -1374,8 +1374,8 @@ func TestValueAnyVldr_ValidateAll(t *testing.T) {
 		result         ErrorMap
 		typeCheckError bool
 	}{
-		{name: "invalid", rule: presentRule{}, data: nil, result: errInvalidValue},
-		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: errInvalidValue},
+		{name: "invalid", rule: presentRule{}, data: nil, result: errInvalidValue()},
+		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: errInvalidValue()},
 		{name: "bad_type_with_rule_validator", rule: onlyKindRule{kind: reflect.String}, data: 1, newError: true},
 		{name: "bad_type_after_new", rule: onlyKindRule{kind: reflect.Bool}, data: 1, typeCheckError: true},
 	}
@@ -1451,8 +1451,8 @@ func TestRuleVldr_ValidateAll(t *testing.T) {
 		result         ErrorMap
 		typeCheckError bool
 	}{
-		{name: "invalid", rule: presentRule{}, data: nil, result: errInvalidValue},
-		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: errInvalidValue},
+		{name: "invalid", rule: presentRule{}, data: nil, result: errInvalidValue()},
+		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: errInvalidValue()},
 		{name: "bad_type", rule: onlyKindRule{kind: reflect.Bool}, data: 1, typeCheckError: true},
 	}
 	for _, tc := range edgeTcs {

@@ -75,8 +75,8 @@ func (s KeysAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // KeyRules returns the rules for each key in the Map
 func (s KeysAnyVldr) KeyRules() []Rule { return s.keyRules }
 
-// allRules returns all rules of the validator, the rules of each key
-func (s KeysAnyVldr) allRules() []Rule { return s.keyRules }
+// AllRules returns all rules of the validator, the rules of each key
+func (s KeysAnyVldr) AllRules() []Rule { return s.keyRules }
 
 // Values returns a new ValuesVldr, panics if there is an error
 func Values[T map[K]V, K comparable, V any](valueRules ...Rule) ValuesVldr[T, K, V] {
@@ -149,8 +149,8 @@ func (s ValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // ValueRules returns the rules for each value in the Map
 func (s ValuesAnyVldr) ValueRules() []Rule { return s.valueRules }
 
-// allRules returns all rules of the validator, the rules of each value
-func (s ValuesAnyVldr) allRules() []Rule { return s.valueRules }
+// AllRules returns all rules of the validator, the rules of each value
+func (s ValuesAnyVldr) AllRules() []Rule { return s.valueRules }
 
 // KeyValues returns a new KeyValuesVldr, panics if there is an error
 func KeyValues[T map[K]V, K comparable, V any](keyValueRules ...Rule) KeyValuesVldr[T, K, V] {
@@ -225,5 +225,5 @@ func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // KeyValueRules returns the rules for each key-value pair in the Map
 func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return s.keyValueRules }
 
-// allRules returns all rules of the validator, the rules of each key-value pair
-func (s KeyValuesAnyVldr) allRules() []Rule { return s.keyValueRules }
+// AllRules returns all rules of the validator, the rules of each key-value pair
+func (s KeyValuesAnyVldr) AllRules() []Rule { return s.keyValueRules }

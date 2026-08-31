@@ -95,8 +95,8 @@ func (s FieldsAnyVldr) RuleMap() RuleMap {
 	return ruleMap
 }
 
-// allRules returns all rules of the validator, the rules of every field
-func (s FieldsAnyVldr) allRules() []Rule {
+// AllRules returns all rules of the validator, the rules of every field
+func (s FieldsAnyVldr) AllRules() []Rule {
 	var rules []Rule
 	for _, fieldRules := range s.ruleMap {
 		rules = append(rules, fieldRules...)
@@ -175,8 +175,8 @@ func (s ElemsAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // ElementRules returns the rules each element in the Slice or Array
 func (s ElemsAnyVldr) ElementRules() []Rule { return s.elementRules }
 
-// allRules returns all rules of the validator, the rules of each element
-func (s ElemsAnyVldr) allRules() []Rule { return s.elementRules }
+// AllRules returns all rules of the validator, the rules of each element
+func (s ElemsAnyVldr) AllRules() []Rule { return s.elementRules }
 
 // Value returns a new ValueVldr, panics if there is an error
 func Value[T any](rules ...Rule) ValueVldr[T] {
@@ -246,8 +246,8 @@ func (v ValueAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // Rules returns the rules for ValueAnyVldr
 func (v ValueAnyVldr) Rules() []Rule { return v.rules }
 
-// allRules returns all rules of the validator
-func (v ValueAnyVldr) allRules() []Rule { return v.rules }
+// AllRules returns all rules of the validator
+func (v ValueAnyVldr) AllRules() []Rule { return v.rules }
 
 // RuleVldr is a Validator wrapper around Rule
 type RuleVldr struct{ Rule }
@@ -260,8 +260,8 @@ func (r RuleVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorM
 	validateMerge(value, key, errorMap, []Rule{r.Rule})
 }
 
-// allRules returns all rules of the validator, the wrapped Rule
-func (r RuleVldr) allRules() []Rule { return []Rule{r.Rule} }
+// AllRules returns all rules of the validator, the wrapped Rule
+func (r RuleVldr) AllRules() []Rule { return []Rule{r.Rule} }
 
 func mustNewValidator[T any](f func() (T, error)) T {
 	validator, err := f()
@@ -271,12 +271,14 @@ func mustNewValidator[T any](f func() (T, error)) T {
 	return validator
 }
 
-var errInvalidValue = ErrorMap{"ValidateAny": TemplateError{Template: "value is not valid"}}
+func errInvalidValue() ErrorMap {
+	return ErrorMap{"ValidateAny": TemplateError{Template: "value is not valid"}}
+}
 
 func validateAny(validator Validator, data any) ErrorMap {
 	value := reflect.ValueOf(data)
 	if !value.IsValid() {
-		return errInvalidValue
+		return errInvalidValue()
 	}
 	return validateValueResult(validator, value)
 }
@@ -285,7 +287,7 @@ func validateValueResult(validator Validator, value reflect.Value) ErrorMap {
 	// Users often don't have control over whether any is a pointer, so we're generous via indirect
 	value = indirect(value)
 	if !value.IsValid() {
-		return errInvalidValue
+		return errInvalidValue()
 	}
 	typ := value.Type()
 	if err := validator.TypeCheck(typ); err != nil {
@@ -323,7 +325,7 @@ func validate(validator Validator, data any) ErrorMap {
 	// Users often don't have control over whether any is a pointer, so we're generous via indirect
 	value := indirect(reflect.ValueOf(data))
 	if !value.IsValid() {
-		return errInvalidValue
+		return errInvalidValue()
 	}
 	errorMap := ErrorMap{}
 	validator.ValidateMerge(value, value.Type().String(), errorMap)
@@ -345,6 +347,9 @@ func typeCheckRules(typ reflect.Type, rules []Rule, errContext string) ([]Rule, 
 }
 
 // stampRegistryBackers returns rules with each RegistryBacker set to typ
+//
+// Not stamped for custom validators due to typeCheckRules() never being called.
+// Custom validators may not have a `typ` restriction, so it makes no sense.
 func stampRegistryBackers(rules []Rule, typ reflect.Type) []Rule {
 	if len(rules) == 0 {
 		return rules
