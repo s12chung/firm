@@ -2,6 +2,7 @@ package firm_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -60,4 +61,94 @@ func TestFieldsWithErrPkg(t *testing.T) {
 			require.Equal(tc.failErr, validator.ValidateAny(nonExport{}))
 		})
 	}
+}
+
+// positiveVldr is a custom firm.Validator implemented with only firm's public impl helpers
+type positiveVldr struct {
+	firm.Rule
+}
+
+var (
+	_ firm.Validator           = positiveVldr{}
+	_ firm.ValidatorTyped[int] = positiveVldr{}
+)
+
+func (p positiveVldr) ValidateAny(data any) firm.ErrorMap { return firm.ImplValidateAny(p, data) }
+
+func (p positiveVldr) ValidateValue(value reflect.Value) firm.ErrorMap {
+	return firm.ImplValidateValue(p, value)
+}
+
+func (p positiveVldr) ValidateMerge(value reflect.Value, key string, errorMap firm.ErrorMap) {
+	firm.ImplValidateMerge(value, key, errorMap, []firm.Rule{p.Rule})
+}
+
+func (p positiveVldr) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
+	return firm.TypeCheck("positiveVldr", typ, reflect.TypeFor[int](), "")
+}
+
+func (p positiveVldr) Validate(data int) firm.ErrorMap { return firm.ImplValidate(p, data) }
+
+func keyed(key firm.ErrorKey, templateError firm.TemplateError) firm.TemplateError {
+	templateError.ErrorKey = key
+	return templateError
+}
+
+func TestCustomValidatorPkg(t *testing.T) {
+	require := require.New(t)
+
+	v := positiveVldr{rule.Greater[int]{To: 0}}
+	greaterErr := firm.TemplateError{
+		TemplateFields: map[string]string{"To": "0"},
+		Template:       "is not greater than {{.To}}",
+	}
+	typeCheckErr := firm.TemplateError{
+		TemplateFields: map[string]string{"ValueTypeName": "string"},
+		Template:       "is not matching of type int, got {{.ValueTypeName}}",
+	}
+
+	// ImplValidate - typed Validate(), no TypeCheck
+	require.Nil(v.Validate(1))
+	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.Validate(-1))
+
+	// ImplValidateAny - unsafe values are indirected, invalid values and TypeCheck are answered
+	require.Nil(v.ValidateAny(1))
+	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(-1))
+
+	i := -1
+	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(&i))
+	require.Equal(firm.ErrorMap{"Invalid": firm.TemplateError{Template: "is not valid"}}, v.ValidateAny(nil))
+
+	var pti *int
+	require.Equal(firm.ErrorMap{"Invalid": firm.TemplateError{Template: "is not valid"}}, v.ValidateAny(pti))
+	require.Equal(firm.ErrorMap{"TypeCheck": typeCheckErr}, v.ValidateAny("str"))
+
+	// ImplValidateValue - safe value, assumes TypeCheck is called
+	require.Equal(firm.ErrorMap{"Greater": keyed("Greater", greaterErr)}, v.ValidateValue(reflect.ValueOf(-1)))
+	require.Nil(v.ValidateValue(reflect.ValueOf(1)))
+
+	// ImplValidateMerge - safe value, assumes TypeCheck is called
+	errorMap := firm.ErrorMap{}
+	v.ValidateMerge(reflect.ValueOf(-1), "Positive", errorMap)
+	v.ValidateMerge(reflect.Value{}, "Positive", errorMap)
+	require.Equal(firm.ErrorMap{
+		"Positive.Greater": keyed("Positive.Greater", greaterErr),
+		"Positive.Invalid": keyed("Positive.Invalid", firm.TemplateError{Template: "is not valid"}),
+	}, errorMap)
+}
+
+func TestTypeCheckRulesPkg(t *testing.T) {
+	require := require.New(t)
+
+	rules, err := firm.TypeCheckRules(reflect.TypeFor[int](), []firm.Rule{rule.Greater[int]{To: 0}}, "")
+	require.NoError(err)
+	require.Equal([]firm.Rule{rule.Greater[int]{To: 0}}, rules)
+
+	rules, err = firm.TypeCheckRules(reflect.TypeFor[string](), []firm.Rule{rule.Greater[int]{To: 0}}, "")
+	require.Nil(rules)
+	require.EqualError(err, "Greater: value is not a int, got string")
+
+	rules, err = firm.TypeCheckRules(reflect.TypeFor[string](), []firm.Rule{rule.Greater[int]{To: 0}}, "Positive: element type")
+	require.Nil(rules)
+	require.EqualError(err, "Positive: element type: Greater: value is not a int, got string")
 }

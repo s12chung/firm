@@ -84,12 +84,12 @@ func (r *Registry) ValidateAny(data any) ErrorMap {
 	if !value.IsValid() {
 		value = nilValue
 	}
-	// value is used here, so can't use validateValue to save reflect.TypeOf call
+	// value is used here, so can't use ImplValidateValue to remove value.Type() call
 	return validateValueResult(r.DefaultedValidator(value.Type()), value)
 }
 
 // ValidateValue validates the data value with the correct validator (assumes TypeCheck is called)
-func (r *Registry) ValidateValue(value reflect.Value) ErrorMap { return validateValue(r, value) }
+func (r *Registry) ValidateValue(value reflect.Value) ErrorMap { return ImplValidateValue(r, value) }
 
 // TypeCheck checks whether the type is valid for the Rule
 func (r *Registry) TypeCheck(typ reflect.Type) *RuleTypeError {
@@ -149,7 +149,9 @@ func (b RegistryBacker) ValidateAny(data any) ErrorMap {
 }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (b RegistryBacker) ValidateValue(value reflect.Value) ErrorMap { return validateValue(b, value) }
+func (b RegistryBacker) ValidateValue(value reflect.Value) ErrorMap {
+	return ImplValidateValue(b, value)
+}
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (b RegistryBacker) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {

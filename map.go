@@ -28,7 +28,7 @@ func KeysAnyWithErr(typ reflect.Type, keyRules ...Rule) (KeysAnyVldr, error) {
 		return KeysAnyVldr{}, err
 	}
 
-	keyRules, err = typeCheckRules(typ.Key(), keyRules, "Keys: key type")
+	keyRules, err = TypeCheckRules(typ.Key(), keyRules, "Keys: key type")
 	if err != nil {
 		return KeysAnyVldr{}, err
 	}
@@ -39,7 +39,7 @@ func KeysAnyWithErr(typ reflect.Type, keyRules ...Rule) (KeysAnyVldr, error) {
 type KeysVldr[T map[K]V, K comparable, V any] struct{ KeysAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s KeysVldr[T, K, V]) Validate(data T) ErrorMap { return validate(s, data) }
+func (s KeysVldr[T, K, V]) Validate(data T) ErrorMap { return ImplValidate(s, data) }
 
 // KeysAnyVldr is a KeysVldr without generics
 type KeysAnyVldr struct {
@@ -51,17 +51,17 @@ type KeysAnyVldr struct {
 func (s KeysAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
-func (s KeysAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
+func (s KeysAnyVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(s, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (s KeysAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
+func (s KeysAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return ImplValidateValue(s, value) }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s KeysAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	for iter := value.MapRange(); iter.Next(); {
 		// indirect to ensure passing a non-pointer down to a Rule
 		keyValue := indirect(iter.Key())
-		validateMerge(keyValue, joinKeys(key, mapErrorKey(keyValue)), errorMap, s.keyRules)
+		ImplValidateMerge(keyValue, joinKeys(key, mapErrorKey(keyValue)), errorMap, s.keyRules)
 	}
 }
 
@@ -100,7 +100,7 @@ func ValuesAnyWithErr(typ reflect.Type, valueRules ...Rule) (ValuesAnyVldr, erro
 		return ValuesAnyVldr{}, err
 	}
 
-	valueRules, err = typeCheckRules(typ.Elem(), valueRules, "Values: value type")
+	valueRules, err = TypeCheckRules(typ.Elem(), valueRules, "Values: value type")
 	if err != nil {
 		return ValuesAnyVldr{}, err
 	}
@@ -111,7 +111,7 @@ func ValuesAnyWithErr(typ reflect.Type, valueRules ...Rule) (ValuesAnyVldr, erro
 type ValuesVldr[T map[K]V, K comparable, V any] struct{ ValuesAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s ValuesVldr[T, K, V]) Validate(data T) ErrorMap { return validate(s, data) }
+func (s ValuesVldr[T, K, V]) Validate(data T) ErrorMap { return ImplValidate(s, data) }
 
 // ValuesAnyVldr is a ValuesVldr without generics
 type ValuesAnyVldr struct {
@@ -123,16 +123,18 @@ type ValuesAnyVldr struct {
 func (s ValuesAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
-func (s ValuesAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
+func (s ValuesAnyVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(s, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (s ValuesAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
+func (s ValuesAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
+	return ImplValidateValue(s, value)
+}
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s ValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	for iter := value.MapRange(); iter.Next(); {
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(iter.Value()), joinKeys(key, mapErrorKey(indirect(iter.Key()))), errorMap, s.valueRules)
+		ImplValidateMerge(indirect(iter.Value()), joinKeys(key, mapErrorKey(indirect(iter.Key()))), errorMap, s.valueRules)
 	}
 }
 
@@ -171,7 +173,7 @@ func KeyValuesAnyWithErr(typ reflect.Type, keyValueRules ...Rule) (KeyValuesAnyV
 		return KeyValuesAnyVldr{}, err
 	}
 
-	keyValueRules, err = typeCheckRules(typ, keyValueRules, "KeyValues: key-value pair type")
+	keyValueRules, err = TypeCheckRules(typ, keyValueRules, "KeyValues: key-value pair type")
 	if err != nil {
 		return KeyValuesAnyVldr{}, err
 	}
@@ -182,7 +184,7 @@ func KeyValuesAnyWithErr(typ reflect.Type, keyValueRules ...Rule) (KeyValuesAnyV
 type KeyValuesVldr[T map[K]V, K comparable, V any] struct{ KeyValuesAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s KeyValuesVldr[T, K, V]) Validate(data T) ErrorMap { return validate(s, data) }
+func (s KeyValuesVldr[T, K, V]) Validate(data T) ErrorMap { return ImplValidate(s, data) }
 
 // KeyValuesAnyVldr is a KeyValuesVldr without generics
 type KeyValuesAnyVldr struct {
@@ -194,10 +196,12 @@ type KeyValuesAnyVldr struct {
 func (s KeyValuesAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
-func (s KeyValuesAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
+func (s KeyValuesAnyVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(s, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (s KeyValuesAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
+func (s KeyValuesAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
+	return ImplValidateValue(s, value)
+}
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s KeyValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
@@ -205,7 +209,7 @@ func (s KeyValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMa
 		// passed down as a Map with only 1 key-value pair
 		keyValue := reflect.MakeMapWithSize(s.typ, 1)
 		keyValue.SetMapIndex(iter.Key(), iter.Value())
-		validateMerge(keyValue, joinKeys(key, mapErrorKey(indirect(iter.Key()))), errorMap, s.keyValueRules)
+		ImplValidateMerge(keyValue, joinKeys(key, mapErrorKey(indirect(iter.Key()))), errorMap, s.keyValueRules)
 	}
 }
 

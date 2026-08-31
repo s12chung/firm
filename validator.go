@@ -41,7 +41,7 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 		if !field.IsExported() {
 			return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, is unexported in type: %v", fieldName, typ.String())
 		}
-		rules, err := typeCheckRules(field.Type, rules, fmt.Sprintf("Fields: field, %v, in %v", fieldName, typ.String()))
+		rules, err := TypeCheckRules(field.Type, rules, fmt.Sprintf("Fields: field, %v, in %v", fieldName, typ.String()))
 		if err != nil {
 			return FieldsAnyVldr{}, err
 		}
@@ -55,7 +55,7 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 type FieldsVldr[T any] struct{ FieldsAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s FieldsVldr[T]) Validate(data T) ErrorMap { return validate(s, data) }
+func (s FieldsVldr[T]) Validate(data T) ErrorMap { return ImplValidate(s, data) }
 
 // FieldsAnyVldr is a FieldsVldr without generics
 type FieldsAnyVldr struct {
@@ -69,16 +69,18 @@ type FieldsAnyVldr struct {
 func (s FieldsAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
-func (s FieldsAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
+func (s FieldsAnyVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(s, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (s FieldsAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
+func (s FieldsAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
+	return ImplValidateValue(s, value)
+}
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s FieldsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	for fieldName, rules := range s.ruleMap {
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(fieldByIndex(value, s.fieldIndexes[fieldName])), joinKeys(key, fieldName), errorMap, rules)
+		ImplValidateMerge(indirect(fieldByIndex(value, s.fieldIndexes[fieldName])), joinKeys(key, fieldName), errorMap, rules)
 	}
 }
 
@@ -127,7 +129,7 @@ func ElemsAnyWithErr(typ reflect.Type, elementRules ...Rule) (ElemsAnyVldr, erro
 		return ElemsAnyVldr{}, err
 	}
 
-	elementRules, err = typeCheckRules(typ.Elem(), elementRules, "Elems: element type")
+	elementRules, err = TypeCheckRules(typ.Elem(), elementRules, "Elems: element type")
 	if err != nil {
 		return ElemsAnyVldr{}, err
 	}
@@ -138,7 +140,7 @@ func ElemsAnyWithErr(typ reflect.Type, elementRules ...Rule) (ElemsAnyVldr, erro
 type ElemsVldr[T []U, U any] struct{ ElemsAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s ElemsVldr[T, U]) Validate(data T) ErrorMap { return validate(s, data) }
+func (s ElemsVldr[T, U]) Validate(data T) ErrorMap { return ImplValidate(s, data) }
 
 // ElemsAnyVldr is an ElemsVldr without generics
 type ElemsAnyVldr struct {
@@ -150,16 +152,16 @@ type ElemsAnyVldr struct {
 func (s ElemsAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
-func (s ElemsAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(s, data) }
+func (s ElemsAnyVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(s, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (s ElemsAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(s, value) }
+func (s ElemsAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return ImplValidateValue(s, value) }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (s ElemsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	for i := range value.Len() {
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(value.Index(i)), joinKeys(key, sliceErrorKey(i)), errorMap, s.elementRules)
+		ImplValidateMerge(indirect(value.Index(i)), joinKeys(key, sliceErrorKey(i)), errorMap, s.elementRules)
 	}
 }
 
@@ -197,7 +199,7 @@ func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 		return ValueAnyVldr{}, errors.New("Value: type is nil")
 	}
 	typ = indirectType(typ)
-	rules, err := typeCheckRules(typ, rules, "")
+	rules, err := TypeCheckRules(typ, rules, "")
 	if err != nil {
 		return ValueAnyVldr{}, err
 	}
@@ -208,7 +210,7 @@ func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 type ValueVldr[T any] struct{ ValueAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (v ValueVldr[T]) Validate(data T) ErrorMap { return validate(v, data) }
+func (v ValueVldr[T]) Validate(data T) ErrorMap { return ImplValidate(v, data) }
 
 // ValueAnyVldr is a ValueVldr without generics
 type ValueAnyVldr struct {
@@ -220,14 +222,14 @@ type ValueAnyVldr struct {
 func (v ValueAnyVldr) Type() reflect.Type { return v.typ }
 
 // ValidateAny validates the data
-func (v ValueAnyVldr) ValidateAny(data any) ErrorMap { return validateAny(v, data) }
+func (v ValueAnyVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(v, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (v ValueAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(v, value) }
+func (v ValueAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return ImplValidateValue(v, value) }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (v ValueAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
-	validateMerge(value, key, errorMap, v.rules)
+	ImplValidateMerge(value, key, errorMap, v.rules)
 }
 
 // TypeCheck checks whether the type is valid for the Rule
@@ -245,14 +247,14 @@ func (v ValueAnyVldr) AllRules() []Rule { return v.rules }
 type RuleVldr struct{ Rule }
 
 // ValidateAny validates the data
-func (r RuleVldr) ValidateAny(data any) ErrorMap { return validateAny(r, data) }
+func (r RuleVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(r, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (r RuleVldr) ValidateValue(value reflect.Value) ErrorMap { return validateValue(r, value) }
+func (r RuleVldr) ValidateValue(value reflect.Value) ErrorMap { return ImplValidateValue(r, value) }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (r RuleVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
-	validateMerge(value, key, errorMap, []Rule{r.Rule})
+	ImplValidateMerge(value, key, errorMap, []Rule{r.Rule})
 }
 
 // AllRules returns all rules of the validator, the wrapped Rule
@@ -270,7 +272,8 @@ func mustNewValidator[T any](f func() (T, error)) T {
 func ErrInvalidValue() ErrorMap                       { return ErrorMap{"Invalid": TemplateError{Template: "is not valid"}} }
 func mergeInvalidValue(key string, errorMap ErrorMap) { ErrInvalidValue().MergeInto(key, errorMap) }
 
-func validateAny(validator Validator, data any) ErrorMap {
+// ImplValidateAny validates the data with the validator, the implementation of Validator.ValidateAny()
+func ImplValidateAny(validator Validator, data any) ErrorMap {
 	value := reflect.ValueOf(data)
 	if !value.IsValid() {
 		return ErrInvalidValue()
@@ -278,6 +281,42 @@ func validateAny(validator Validator, data any) ErrorMap {
 	return validateValueResult(validator, value)
 }
 
+// ImplValidateValue validates the data value with the validator (assumes TypeCheck is called),
+// the implementation of Rule.ValidateValue()
+func ImplValidateValue(validator Validator, value reflect.Value) ErrorMap {
+	errorMap := ErrorMap{}
+	validator.ValidateMerge(value, "", errorMap)
+	return errorMap.Finish()
+}
+
+// ImplValidateMerge validates the data value with the rules, also doing a merge with the errorMap
+// (assumes TypeCheck is called), the implementation of Validator.ValidateMerge()
+func ImplValidateMerge(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
+	// invalid values (e.g. from indirecting a nil pointer) never reach Rules
+	if !value.IsValid() {
+		mergeInvalidValue(key, errorMap)
+		return
+	}
+	for _, rule := range rules {
+		rule.ValidateValue(value).MergeInto(key, errorMap)
+	}
+}
+
+// ImplValidate validates the data with the validator, the implementation of ValidatorTyped.Validate()--
+// no type checking is done on runtime
+func ImplValidate(validator Validator, data any) ErrorMap {
+	// Users often don't have control over whether any is a pointer, so we're generous via indirect
+	value := indirect(reflect.ValueOf(data))
+	if !value.IsValid() {
+		return ErrInvalidValue()
+	}
+	errorMap := ErrorMap{}
+	validator.ValidateMerge(value, value.Type().String(), errorMap)
+	return errorMap.Finish()
+}
+
+// validateValueResult indirects and TypeChecks the validator on the value, then merges with a key of
+// the type's name. Used by validators that pick the validator by the value's type, e.g. Registry.ValidateAny()
 func validateValueResult(validator Validator, value reflect.Value) ErrorMap {
 	// Users often don't have control over whether any is a pointer, so we're generous via indirect
 	value = indirect(value)
@@ -299,37 +338,9 @@ func validateValueResult(validator Validator, value reflect.Value) ErrorMap {
 	return errorMap.Finish()
 }
 
-func validateValue(validator Validator, value reflect.Value) ErrorMap {
-	errorMap := ErrorMap{}
-	validator.ValidateMerge(value, "", errorMap)
-	return errorMap.Finish()
-}
-
-func validateMerge(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
-	// invalid values (e.g. from indirecting a nil pointer) never reach Rules
-	if !value.IsValid() {
-		mergeInvalidValue(key, errorMap)
-		return
-	}
-	for _, rule := range rules {
-		rule.ValidateValue(value).MergeInto(key, errorMap)
-	}
-}
-
-func validate(validator Validator, data any) ErrorMap {
-	// Users often don't have control over whether any is a pointer, so we're generous via indirect
-	value := indirect(reflect.ValueOf(data))
-	if !value.IsValid() {
-		return ErrInvalidValue()
-	}
-	errorMap := ErrorMap{}
-	validator.ValidateMerge(value, value.Type().String(), errorMap)
-	return errorMap.Finish()
-}
-
-// typeCheckRules TypeChecks each rule against the indirected typ, wrapping any error with errContext,
+// TypeCheckRules TypeChecks each rule against the indirected typ, wrapping any error with errContext,
 // and returns rules with each RegistryBacker set to typ
-func typeCheckRules(typ reflect.Type, rules []Rule, errContext string) ([]Rule, error) {
+func TypeCheckRules(typ reflect.Type, rules []Rule, errContext string) ([]Rule, error) {
 	for _, rule := range rules {
 		if err := rule.TypeCheck(indirectType(typ)); err != nil {
 			if errContext == "" {
@@ -343,7 +354,7 @@ func typeCheckRules(typ reflect.Type, rules []Rule, errContext string) ([]Rule, 
 
 // stampRegistryBackers returns rules with each RegistryBacker set to typ
 //
-// Not stamped for custom validators due to typeCheckRules() never being called.
+// Not stamped for custom validators due to TypeCheckRules() never being called.
 // Custom validators may not have a `typ` restriction, so it makes no sense.
 func stampRegistryBackers(rules []Rule, typ reflect.Type) []Rule {
 	if len(rules) == 0 {

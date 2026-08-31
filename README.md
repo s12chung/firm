@@ -333,6 +333,16 @@ Via generics, `firm.ValidatorTyped[T any]` can call `Validate()`. Avoids reflect
 | `registry.Backed()/firm.RegistryBacker{Registry}` | handles recursion, essentially a `firm.Registry` wrapper, see [Recursion](#recursion) section |
 | `firm.RuleVldr{Rule}` | convenience `firm.Validator` struct that wraps around a `firm.Rule` |
 
+Implement your own `firm.Validator` with these helpers:
+
+- `firm.ImplValidateAny(v, data)` - implementation calls `firm.TypeCheck()` indirects pointers, and returns `firm.ErrInvalidValue()` for unsafe values
+- `firm.ImplValidateValue(v, value)` - implementation assumes `TypeCheck` is called
+- `firm.ImplValidateMerge(value, key, errorMap, rules)` - implementation assumes `TypeCheck` is called, as it iterates `rules` and merges them into the errorMap
+- `firm.ImplValidate(v, data)` - implementation does no type checking is done on runtime because `Validate()` is a typed function (often with generics)
+- `firm.TypeCheckRules(typ, rules, errContext)` - calls `firm.RuleTypeCheck()` of each rule with the indirected `typ`, wrapping any error with `errContext` and handles the [Registry.Backed() gotcha](#registries)
+
+Looking at `firm.ValueAnyVldr` in ([validator.go](validator.go)) as an example is recommended.
+
 ## Recursion
 
 ### Registries

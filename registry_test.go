@@ -41,10 +41,10 @@ type cycleSliceChild struct {
 // cycleCustomVldr wraps a Rule like RuleVldr, exposing its rules via AllRules()
 type cycleCustomVldr struct{ Rule }
 
-func (c cycleCustomVldr) ValidateAny(data any) ErrorMap { return validateAny(c, data) }
+func (c cycleCustomVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(c, data) }
 
 func (c cycleCustomVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
-	validateMerge(value, key, errorMap, []Rule{c.Rule})
+	ImplValidateMerge(value, key, errorMap, []Rule{c.Rule})
 }
 
 func (c cycleCustomVldr) AllRules() []Rule { return []Rule{c.Rule} }
@@ -52,10 +52,10 @@ func (c cycleCustomVldr) AllRules() []Rule { return []Rule{c.Rule} }
 // cycleOpaqueVldr is like cycleCustomVldr, but without AllRules()
 type cycleOpaqueVldr struct{ Rule }
 
-func (c cycleOpaqueVldr) ValidateAny(data any) ErrorMap { return validateAny(c, data) }
+func (c cycleOpaqueVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(c, data) }
 
 func (c cycleOpaqueVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
-	validateMerge(value, key, errorMap, []Rule{c.Rule})
+	ImplValidateMerge(value, key, errorMap, []Rule{c.Rule})
 }
 
 func TestRegistry_RegisterType(t *testing.T) {
