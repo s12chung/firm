@@ -30,8 +30,8 @@ func TestErrorMap_MergeInto(t *testing.T) {
 	}
 	src.MergeInto("PATH", dest)
 	require.Equal(ErrorMap{
-		"PATH.A": TemplateError{Template: "a1"},
-		"PATH.B": TemplateError{Template: "b1"},
+		"PATH.A": TemplateError{Template: "a1", ErrorKey: "PATH.A"},
+		"PATH.B": TemplateError{Template: "b1", ErrorKey: "PATH.B"},
 		"PATH.C": TemplateError{Template: "c2"},
 	}, dest)
 }

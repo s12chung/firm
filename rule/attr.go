@@ -2,6 +2,7 @@ package rule
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 
 	"github.com/s12chung/firm"
@@ -49,6 +50,8 @@ func (a Attr) errorMap(original firm.ErrorMap) firm.ErrorMap {
 
 	errorMap := firm.ErrorMap{}
 	for k, err := range original {
+		// clone to avoid mutating the original's TemplateFields
+		err.TemplateFields = maps.Clone(err.TemplateFields)
 		if err.TemplateFields == nil {
 			err.TemplateFields = map[string]string{}
 		}

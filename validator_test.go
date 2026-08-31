@@ -1077,7 +1077,7 @@ func TestFieldsAnyVldr_NilEmbeddedPointerField(t *testing.T) {
 	require.NoError(err)
 
 	errorKey := ErrorKey("Validates." + presentRuleKey)
-	expected := ErrorMap{errorKey: *presentRuleError("")}
+	expected := ErrorMap{errorKey: *presentRuleError(errorKey)}
 	// Child: nil is the embedded pointer field
 	require.Equal(expected, validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
 	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
@@ -1501,7 +1501,8 @@ func TestRuleVldr_ValidateAll(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			testValidateAll(t, validator, tc.data, tc.err, presentRuleKey)
+			// RuleVldr.ValidateValue is Rule's promoted method, so it returns the raw, unmerged rule result
+			testValidateAllExpected(t, false, validator, tc.data, suffixErrorMap(tc.err, []string{presentRuleKey}))
 			testValidateAll(t, validator, &tc.data, nil)
 		})
 	}

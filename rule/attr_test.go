@@ -96,3 +96,23 @@ func TestAttr_ErrorMap(t *testing.T) {
 	testErrorMap(t, rule, "Len-Equal: value attribute, Len, is not equal to 1")
 	require.Equal(t, rule.ValidateValue(reflect.ValueOf("")), rule.ErrorMap())
 }
+
+type sharedErrorRule struct{ errMap firm.ErrorMap }
+
+func (s sharedErrorRule) ValidateValue(_ reflect.Value) firm.ErrorMap { return s.errMap }
+func (s sharedErrorRule) TypeCheck(_ reflect.Type) *firm.RuleTypeError {
+	return nil
+}
+func (s sharedErrorRule) ErrorMap() firm.ErrorMap { return s.errMap }
+
+func TestAttr_ErrorMap_DoesNotMutateSharedTemplateFields(t *testing.T) {
+	staticFields := map[string]string{"To": "5"}
+	shared := Attr{Of: attr.Len{}, Rule: sharedErrorRule{errMap: firm.ErrorMap{equalName: firm.TemplateError{
+		Template:       "is not equal to {{.To}}",
+		TemplateFields: staticFields,
+	}}}}
+
+	wrapped := shared.ValidateValue(reflect.ValueOf("hello"))
+	require.Equal(t, map[string]string{"To": "5"}, staticFields)
+	require.Equal(t, "Len", wrapped["Len-"+equalName].TemplateFields["AttrName"])
+}

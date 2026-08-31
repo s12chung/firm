@@ -49,19 +49,28 @@ func typeCheckErrorResult(rule Rule, data any) ErrorMap {
 
 // testValidateAll asserts ValidateAny/ValidateValue/ValidateMerge, expecting err keyed at every keySuffix
 func testValidateAll(t *testing.T, validator Validator, data any, err *TemplateError, keySuffixes ...string) {
-	testValidateAllFull(t, false, validator, data, err, keySuffixes...)
+	testValidateAllExpected(t, false, validator, data, suffixErrorMap(err, keySuffixes).Finish())
 }
 
 func testValidateAllFull(t *testing.T, skipValidate bool, validator Validator, data any, err *TemplateError, keySuffixes ...string) {
-	require := require.New(t)
+	testValidateAllExpected(t, skipValidate, validator, data, suffixErrorMap(err, keySuffixes).Finish())
+}
 
-	var validateValueExpected ErrorMap
+// suffixErrorMap keys err at every keySuffix
+func suffixErrorMap(err *TemplateError, keySuffixes []string) ErrorMap {
+	var expected ErrorMap
 	if err != nil && len(keySuffixes) > 0 {
-		validateValueExpected = ErrorMap{}
+		expected = ErrorMap{}
 		for _, key := range keySuffixes {
-			validateValueExpected[ErrorKey(key)] = *err
+			expected[ErrorKey(key)] = *err
 		}
 	}
+	return expected
+}
+
+func testValidateAllExpected(t *testing.T, skipValidate bool, validator Validator, data any, validateValueExpected ErrorMap) {
+	require := require.New(t)
+
 	validateExpected := ErrorMap{}
 	validateValueExpected.MergeInto(typeName(reflect.ValueOf(data)), validateExpected)
 	validateExpected = validateExpected.ToNil()
@@ -75,12 +84,13 @@ func testValidateAllFull(t *testing.T, skipValidate bool, validator Validator, d
 	errorKey := "pkger.Mover.Parent"
 	errorMap := ErrorMap{"Existing": TemplateError{}}
 	expectedErrorMap := maps.Clone(errorMap)
-	if err != nil {
-		for _, keySuffix := range keySuffixes {
-			expectedErrorMap[ErrorKey(joinKeys(errorKey, keySuffix))] = *err
-		}
+	for keySuffix, err := range validateValueExpected {
+		key := ErrorKey(joinKeys(errorKey, string(keySuffix)))
+		mergedErr := err
+		mergedErr.ErrorKey = key
+		expectedErrorMap[key] = mergedErr
 	}
-	validator.ValidateMerge(indirectValue, errorKey, errorMap)
+	validator.ValidateMerge(indirect(reflect.ValueOf(data)), errorKey, errorMap)
 	require.Equal(expectedErrorMap, errorMap)
 }
 
