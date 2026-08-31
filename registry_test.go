@@ -106,7 +106,7 @@ func TestRegistry_RegisterType_NonStruct(t *testing.T) {
 }
 
 func notFoundError(data any) ErrorMap {
-	value := reflect.ValueOf(data)
+	value := indirect(reflect.ValueOf(data))
 	errorMap := ErrorMap{}
 	DefaultValidator.ValidateMerge(value, typeName(value), errorMap)
 	return errorMap.Finish()
@@ -184,7 +184,10 @@ func TestRegistry_ValidateAll(t *testing.T) {
 				require.Equal(notFoundError(data), registry.ValidateAny(data))
 				require.Equal(notFoundError(&data), registry.ValidateAny(&data))
 
-				notFoundTemplateError := &TemplateError{Template: "type, {{.RootTypeName}}, not found in Registry"}
+				notFoundTemplateError := &TemplateError{
+					Template:       "type, {{.ValueTypeName}}, not found in Registry",
+					TemplateFields: map[string]string{"ValueTypeName": typeName(reflect.ValueOf(data))},
+				}
 				testValidateAllFull(t, true, registry, data, notFoundTemplateError, tc.expectedKeySuffix)
 				testValidateAllFull(t, true, registry, &data, notFoundTemplateError, tc.expectedKeySuffix)
 				return

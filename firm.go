@@ -26,13 +26,22 @@ var DefaultValidator = RuleVldr{Rule: NotFoundRule{}}
 // NotFoundRule is the rule used for not found types in the DefaultValidator
 type NotFoundRule struct{}
 
-// ValidateValue validates the value
-func (n NotFoundRule) ValidateValue(_ reflect.Value) ErrorMap { return n.ErrorMap() }
+// ValidateValue validates the value, naming the value's type as not found in the Registry
+func (n NotFoundRule) ValidateValue(value reflect.Value) ErrorMap {
+	if !value.IsValid() {
+		return n.ErrorMap()
+	}
+	return ErrorMap{"NotFound": TemplateError{
+		Template:       "type, {{.ValueTypeName}}, not found in Registry",
+		TemplateFields: map[string]string{"ValueTypeName": value.Type().String()},
+	}}
+}
 
 // TypeCheck checks whether the type is valid for the Rule
 func (n NotFoundRule) TypeCheck(_ reflect.Type) *RuleTypeError { return nil }
 
-// ErrorMap returns the ErrorMap returned from ValidateValue
+// ErrorMap returns the ErrorMap returned from ValidateValue, when the value is invalid
+// and has no type to name
 func (n NotFoundRule) ErrorMap() ErrorMap {
 	return ErrorMap{"NotFound": TemplateError{Template: "type, {{.RootTypeName}}, not found in Registry"}}
 }

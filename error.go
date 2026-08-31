@@ -97,48 +97,58 @@ func (t TemplateError) Error() string {
 // ErrorKey is a string that has helper functions relating to error keys
 type ErrorKey string
 
+// split returns the key's segments, split on keySeparator outside of brackets
+func (e ErrorKey) split() []string {
+	s := string(e)
+
+	var segments []string
+	depth, start := 0, 0
+	for i, r := range s {
+		switch r {
+		case '[':
+			depth++
+		case ']':
+			if depth > 0 {
+				depth--
+			}
+		case '.':
+			if depth == 0 {
+				segments = append(segments, s[start:i])
+				start = i + 1
+			}
+		}
+	}
+	return append(segments, s[start:])
+}
+
 // RootTypeName returns the type name of the key
 func (e ErrorKey) RootTypeName() string {
-	suffix := string(e)
-	for range 2 {
-		index := strings.Index(suffix, keySeparator)
-		if index == -1 {
-			return ""
-		}
-		suffix = suffix[index+1:]
+	segments := e.split()
+	if len(segments) < 3 {
+		return ""
 	}
-	name := string(e)
-	return name[:len(name)-len(suffix)-1]
+	return strings.Join(segments[:2], keySeparator)
 }
 
 // ValueName returns the value name of the key - the Struct field, array index or value type name
 func (e ErrorKey) ValueName() string {
-	s := string(e)
-	lastIdx := strings.LastIndex(s, keySeparator)
-	if lastIdx == -1 {
+	segments := e.split()
+	switch {
+	case len(segments) < 3:
 		return ""
+	case len(segments) == 3:
+		return strings.Join(segments[:2], keySeparator)
 	}
-	secLastIdx := strings.LastIndex(s[:lastIdx-1], keySeparator)
-	if secLastIdx == -1 {
-		return ""
-	}
-	firstIdx := strings.Index(s, keySeparator)
-
-	start := secLastIdx + 1
-	if firstIdx == secLastIdx {
-		start = 0
-	}
-	return s[start:lastIdx]
+	return segments[len(segments)-2]
 }
 
 // ErrorName returns the error name of the key
 func (e ErrorKey) ErrorName() string {
-	s := string(e)
-	lastIdx := strings.LastIndex(s, keySeparator)
-	if lastIdx == -1 {
+	segments := e.split()
+	if len(segments) < 2 {
 		return ""
 	}
-	return s[lastIdx+len(keySeparator):]
+	return segments[len(segments)-1]
 }
 
 // NewRuleTypeError returns a new RuleTypeError

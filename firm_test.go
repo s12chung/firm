@@ -9,9 +9,14 @@ import (
 
 func TestNotFoundRule_ValidateValue(t *testing.T) {
 	require := require.New(t)
-	errorMap := NotFoundRule{}.ValidateValue(reflect.ValueOf(1))
-	require.Equal(NotFoundRule{}.ErrorMap(), errorMap)
-	require.NotNil(errorMap)
-	require.NotEmpty(errorMap)
-	require.Equal("NotFound: value type, NoType, not found in Registry", errorMap.Error())
+
+	typed := ErrorMap{"NotFound": TemplateError{
+		Template:       "type, {{.ValueTypeName}}, not found in Registry",
+		TemplateFields: map[string]string{"ValueTypeName": "int"},
+	}}
+	require.Equal(typed, NotFoundRule{}.ValidateValue(reflect.ValueOf(1)))
+	require.Equal("NotFound: value type, int, not found in Registry", typed.Finish().Error())
+
+	require.Equal(NotFoundRule{}.ErrorMap(), NotFoundRule{}.ValidateValue(reflect.Value{}))
+	require.Equal("NotFound: value type, NoType, not found in Registry", NotFoundRule{}.ErrorMap().Finish().Error())
 }

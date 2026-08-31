@@ -136,6 +136,8 @@ func TestErrorKey_RootTypeName(t *testing.T) {
 		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "firm.parent"},
 		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "firm.parent"},
 		{name: "self", errorKey: "firm.parent.TheError", expected: "firm.parent"},
+		{name: "map_key_separator", errorKey: "firm.parent.Map.[a.b].TheError", expected: "firm.parent"},
+		{name: "composite_root", errorKey: "map[string]firm.Child.[k].TheError", expected: "map[string]firm.Child"},
 		{name: "empty", errorKey: "", expected: ""},
 	}
 	for _, tc := range tcs {
@@ -156,6 +158,8 @@ func TestErrorKey_ValueName(t *testing.T) {
 		{name: "slice", errorKey: "firm.parent.Field.[0].TheError", expected: "[0]"},
 		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "Field"},
 		{name: "self", errorKey: "firm.parent.TheError", expected: "firm.parent"},
+		{name: "map_key_separator", errorKey: "firm.parent.Map.[a.b].TheError", expected: "[a.b]"},
+		{name: "composite_root", errorKey: "map[string]firm.Child.[k].TheError", expected: "[k]"},
 		{name: "just_type", errorKey: "firm.parent", expected: ""},
 		{name: "empty", errorKey: "", expected: ""},
 	}
@@ -176,6 +180,7 @@ func TestErrorKey_ErrorName(t *testing.T) {
 		{name: "deep", errorKey: "firm.parent.Field.[0].InnerField.TheError", expected: "TheError"},
 		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "TheError"},
 		{name: "self", errorKey: "firm.parent.TheError", expected: "TheError"},
+		{name: "map_key_separator", errorKey: "firm.parent.Map.[a.b].TheError", expected: "TheError"},
 		{name: "empty", errorKey: "", expected: ""},
 	}
 	for _, tc := range tcs {

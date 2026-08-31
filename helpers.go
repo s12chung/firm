@@ -1,7 +1,6 @@
 package firm
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -25,21 +24,24 @@ func indirectType(typ reflect.Type) reflect.Type {
 
 // typeOfKind returns the indirected type, ensuring the type is one of the kinds
 func typeOfKind(vdlrClass string, typ reflect.Type, kinds ...reflect.Kind) (reflect.Type, error) {
+	badType := "nil"
+	if typ != nil {
+		typ = indirectType(typ)
+		if slices.Contains(kinds, typ.Kind()) {
+			return typ, nil
+		}
+		badType = typ.String()
+	}
+	return nil, fmt.Errorf("%s: type, %s, is not a %s", vdlrClass, badType, kindNamesForErr(kinds))
+}
+
+func kindNamesForErr(kinds []reflect.Kind) string {
 	kindNames := make([]string, len(kinds))
 	for i, kind := range kinds {
 		name := kind.String()
 		kindNames[i] = strings.ToUpper(name[:1]) + name[1:]
 	}
-	kindNamesForErr := strings.Join(kindNames, " or ")
-
-	if typ == nil {
-		return nil, errors.New(vdlrClass + ": type, nil, is not a " + kindNamesForErr)
-	}
-	typ = indirectType(typ)
-	if !slices.Contains(kinds, typ.Kind()) {
-		return nil, fmt.Errorf("%s: type, %v, is not a %s", vdlrClass, typ.String(), kindNamesForErr)
-	}
-	return typ, nil
+	return strings.Join(kindNames, " or ")
 }
 
 const keySeparator = "."
