@@ -13,6 +13,8 @@ type structValidatorTestCase struct {
 	name      string
 	f         func() parent
 	errorKeys []string
+	// invalidKeys keys Invalid errors for invalid values (e.g. nil pointer fields)
+	invalidKeys []string
 }
 
 var structValidatorTestCases = []structValidatorTestCase{
@@ -86,7 +88,7 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.Pt = &Child{}
 		return changeParent
 	}},
-	{name: "Pt___nil", errorKeys: []string{"Pt"}, f: func() parent {
+	{name: "Pt___nil", invalidKeys: []string{"Pt"}, f: func() parent {
 		changeParent := fullParent()
 		changeParent.Pt = nil
 		return changeParent
@@ -95,7 +97,7 @@ var structValidatorTestCases = []structValidatorTestCase{
 	//
 	// Multi
 	//
-	{name: "Multi", errorKeys: []string{"Child", "Child.Validates", "Primitive", "Pt"}, f: func() parent {
+	{name: "Multi", errorKeys: []string{"Child", "Child.Validates", "Primitive"}, invalidKeys: []string{"Pt"}, f: func() parent {
 		changeParent := fullParent()
 		changeParent.Child = Child{}
 		changeParent.Primitive = 0
@@ -296,7 +298,7 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtEmptyValidates = &Child{}
 		return changeParent
 	}},
-	{name: "PtEmptyValidates___nil", errorKeys: nil, f: func() parent {
+	{name: "PtEmptyValidates___nil", invalidKeys: []string{"PtEmptyValidates"}, f: func() parent {
 		changeParent := fullParent()
 		changeParent.PtEmptyValidates = nil
 		return changeParent
@@ -386,14 +388,13 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.SlicePtValidates = nil
 		return changeParent
 	}},
-	{name: "SlicePtValidates___nil_element", errorKeys: []string{"SlicePtValidates.[0].Validates"}, f: func() parent {
-		changeParent := fullParent()
-		// the empty child surfaces errors, while
-		// the nil element is silently skipped because SelfValidates is not called
-		// and the SlicePtValidates doesn't have any validations either
-		changeParent.SlicePtValidates = []*Child{{}, nil}
-		return changeParent
-	}},
+	{name: "SlicePtValidates___nil_element", errorKeys: []string{"SlicePtValidates.[0].Validates"}, invalidKeys: []string{"SlicePtValidates.[1]"},
+		f: func() parent {
+			changeParent := fullParent()
+			// the empty child surfaces errors, while the nil element surfaces an Invalid error
+			changeParent.SlicePtValidates = []*Child{{}, nil}
+			return changeParent
+		}},
 
 	//
 	// PtSliceValidates
@@ -422,7 +423,7 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtSliceValidates = &[]Child{}
 		return changeParent
 	}},
-	{name: "PtSliceValidates___nil", errorKeys: nil, f: func() parent {
+	{name: "PtSliceValidates___nil", invalidKeys: []string{"PtSliceValidates"}, f: func() parent {
 		changeParent := fullParent()
 		changeParent.PtSliceValidates = nil
 		return changeParent
@@ -493,14 +494,15 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.MapPtValidatesValues = nil
 		return changeParent
 	}},
-	{name: "MapPtValidatesValues___nil_element", errorKeys: []string{"MapPtValidatesValues.[1].Validates"}, f: func() parent {
-		changeParent := fullParent()
-		// the empty child surfaces errors, while
-		// the nil element is silently skipped because SelfValidates is not called
-		// and the MapPtValidatesValues doesn't have any validations either
-		changeParent.MapPtValidatesValues = map[string]*Child{"1": {}, "2": nil}
-		return changeParent
-	}},
+	{name: "MapPtValidatesValues___nil_element",
+		errorKeys:   []string{"MapPtValidatesValues.[1].Validates"},
+		invalidKeys: []string{"MapPtValidatesValues.[2]"},
+		f: func() parent {
+			changeParent := fullParent()
+			// the empty child surfaces errors, while the nil element surfaces an Invalid error
+			changeParent.MapPtValidatesValues = map[string]*Child{"1": {}, "2": nil}
+			return changeParent
+		}},
 
 	//
 	// PtMapValidatesValues
@@ -533,7 +535,7 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtMapValidatesValues = &map[string]Child{}
 		return changeParent
 	}},
-	{name: "PtMapValidatesValues___nil", errorKeys: nil, f: func() parent {
+	{name: "PtMapValidatesValues___nil", invalidKeys: []string{"PtMapValidatesValues"}, f: func() parent {
 		changeParent := fullParent()
 		changeParent.PtMapValidatesValues = nil
 		return changeParent
@@ -616,7 +618,7 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtMapValidatesKeys = &map[string]Child{}
 		return changeParent
 	}},
-	{name: "PtMapValidatesKeys___nil", errorKeys: nil, f: func() parent {
+	{name: "PtMapValidatesKeys___nil", invalidKeys: []string{"PtMapValidatesKeys"}, f: func() parent {
 		changeParent := fullParent()
 		changeParent.PtMapValidatesKeys = nil
 		return changeParent
@@ -686,12 +688,15 @@ var structValidatorTestCases = []structValidatorTestCase{
 			changeParent.MapPtValidatesKeyValues["1"] = &Child{}
 			return changeParent
 		}},
-	{name: "MapPtValidatesKeyValues___key_zero", errorKeys: []string{"MapPtValidatesKeyValues.[].Key"}, f: func() parent {
-		changeParent := fullParent()
-		changeParent.MapPtValidatesKeyValues[""] = nil
-		delete(changeParent.MapPtValidatesKeyValues, "1")
-		return changeParent
-	}},
+	{name: "MapPtValidatesKeyValues___key_zero",
+		errorKeys:   []string{"MapPtValidatesKeyValues.[].Key"},
+		invalidKeys: []string{"MapPtValidatesKeyValues.[].Value"},
+		f: func() parent {
+			changeParent := fullParent()
+			changeParent.MapPtValidatesKeyValues[""] = nil
+			delete(changeParent.MapPtValidatesKeyValues, "1")
+			return changeParent
+		}},
 	{name: "MapPtValidatesKeyValues___empty", errorKeys: nil, f: func() parent {
 		changeParent := fullParent()
 		changeParent.MapPtValidatesKeyValues = map[string]*Child{}
@@ -702,14 +707,15 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.MapPtValidatesKeyValues = nil
 		return changeParent
 	}},
-	{name: "MapPtValidatesKeyValues___nil_element", errorKeys: []string{"MapPtValidatesKeyValues.[1].Value.Validates"}, f: func() parent {
-		changeParent := fullParent()
-		// the empty child surfaces errors, while
-		// the nil element is silently skipped because SelfValidates is not called
-		// and the MapPtValidatesKeyValues doesn't have any validations either
-		changeParent.MapPtValidatesKeyValues = map[string]*Child{"1": {}, "2": nil}
-		return changeParent
-	}},
+	{name: "MapPtValidatesKeyValues___nil_element",
+		errorKeys:   []string{"MapPtValidatesKeyValues.[1].Value.Validates"},
+		invalidKeys: []string{"MapPtValidatesKeyValues.[2].Value"},
+		f: func() parent {
+			changeParent := fullParent()
+			// the empty child surfaces errors, while the nil element surfaces an Invalid error
+			changeParent.MapPtValidatesKeyValues = map[string]*Child{"1": {}, "2": nil}
+			return changeParent
+		}},
 
 	//
 	// PtMapValidatesKeyValues
@@ -752,7 +758,7 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtMapValidatesKeyValues = &map[string]Child{}
 		return changeParent
 	}},
-	{name: "PtMapValidatesKeyValues___nil", errorKeys: nil, f: func() parent {
+	{name: "PtMapValidatesKeyValues___nil", invalidKeys: []string{"PtMapValidatesKeyValues"}, f: func() parent {
 		changeParent := fullParent()
 		changeParent.PtMapValidatesKeyValues = nil
 		return changeParent
@@ -1047,8 +1053,8 @@ func TestFieldsAnyVldr_ValidateAll(t *testing.T) {
 		result ErrorMap
 	}{
 		{name: "not_struct", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: errInvalidValue()},
-		{name: "nil_pointer", data: (*parent)(nil), result: errInvalidValue()},
+		{name: "invalid", data: nil, result: ErrInvalidValue()},
+		{name: "nil_pointer", data: (*parent)(nil), result: ErrInvalidValue()},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
@@ -1057,12 +1063,9 @@ func TestFieldsAnyVldr_ValidateAll(t *testing.T) {
 	for _, tc := range structValidatorTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			rawData := tc.f()
-			errKeySuffixes := make([]string, len(tc.errorKeys))
-			for i, key := range tc.errorKeys {
-				errKeySuffixes[i] = joinKeys(key, presentRuleKey)
-			}
-			testValidateAll(t, validator, rawData, presentRuleError(""), errKeySuffixes...)
-			testValidateAll(t, validator, &rawData, presentRuleError(""), errKeySuffixes...)
+			invalidKeySuffixes := joinAll(tc.invalidKeys, invalidKey)
+			testValidateAllKeys(t, validator, rawData, joinAll(tc.errorKeys, presentRuleKey), invalidKeySuffixes)
+			testValidateAllKeys(t, validator, &rawData, joinAll(tc.errorKeys, presentRuleKey), invalidKeySuffixes)
 		})
 	}
 }
@@ -1076,9 +1079,10 @@ func TestFieldsAnyVldr_NilEmbeddedPointerField(t *testing.T) {
 	})
 	require.NoError(err)
 
-	errorKey := ErrorKey("Validates." + presentRuleKey)
-	expected := ErrorMap{errorKey: *presentRuleError(errorKey)}
-	// Child: nil is the embedded pointer field
+	// Child: nil is the embedded pointer field, so the Validates field's value is invalid and never reaches the rule
+	expected := ErrorMap{}
+	ErrInvalidValue().MergeInto("Validates", expected)
+	expected = expected.Finish()
 	require.Equal(expected, validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
 	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
 }
@@ -1125,6 +1129,8 @@ type sliceValidatorTestCase struct {
 	// defaults to elemsValidator
 	validator Validator
 	errorKeys []string
+	// invalidKeys keys Invalid errors for invalid values (e.g. nil pointer elements)
+	invalidKeys []string
 }
 
 var sliceValidatorTestCases = []sliceValidatorTestCase{
@@ -1154,12 +1160,12 @@ var sliceValidatorTestCases = []sliceValidatorTestCase{
 		return []*sliceValidatorElement{{Int: 1}, {Int: 2}}
 	}},
 	{name: "Ptr_Element_nil", validator: ptrElemsValidator,
-		// presentRule flags the invalid value, while the FieldsAnyVldr validator silently skips it
-		errorKeys: []string{"[0]"}, f: func() any {
+		// the invalid value errors and never reaches the rules
+		invalidKeys: []string{"[0]"}, f: func() any {
 			return []*sliceValidatorElement{nil}
 		}},
 	{name: "Ptr_Element_nil_mixed", validator: ptrElemsValidator,
-		errorKeys: []string{"[1]", "[2]", "[2].Int"}, f: func() any {
+		errorKeys: []string{"[2]", "[2].Int"}, invalidKeys: []string{"[1]"}, f: func() any {
 			return []*sliceValidatorElement{{Int: 1}, nil, {}}
 		}},
 
@@ -1170,7 +1176,7 @@ var sliceValidatorTestCases = []sliceValidatorTestCase{
 		return &[]**sliceValidatorElement{toElemPtrPtr(sliceValidatorElement{Int: 1})}
 	}},
 	{name: "Double_Ptr_Element_nil_mixed", validator: ptrPtElemsValidator,
-		errorKeys: []string{"[1]", "[2]", "[2].Int"}, f: func() any {
+		errorKeys: []string{"[2]", "[2].Int"}, invalidKeys: []string{"[1]"}, f: func() any {
 			return &[]**sliceValidatorElement{toElemPtrPtr(sliceValidatorElement{Int: 1}), nil, toElemPtrPtr(sliceValidatorElement{})}
 		}},
 }
@@ -1266,8 +1272,8 @@ func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 		result ErrorMap
 	}{
 		{name: "not_slice", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: errInvalidValue()},
-		{name: "nil_pointer", data: (*[]sliceValidatorElement)(nil), result: errInvalidValue()},
+		{name: "invalid", data: nil, result: ErrInvalidValue()},
+		{name: "nil_pointer", data: (*[]sliceValidatorElement)(nil), result: ErrInvalidValue()},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
@@ -1280,15 +1286,13 @@ func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 				validator = elemsValidator
 			}
 			rawData := tc.f()
-			errKeySuffixes := make([]string, len(tc.errorKeys))
-			for i, key := range tc.errorKeys {
-				errKeySuffixes[i] = joinKeys(key, presentRuleKey)
-			}
 			// rawData comes boxed in an any, so &rawData would be a *any; build a typed pointer instead
 			ptrData := reflect.New(reflect.TypeOf(rawData))
 			ptrData.Elem().Set(reflect.ValueOf(rawData))
-			testValidateAll(t, validator, rawData, presentRuleError(""), errKeySuffixes...)
-			testValidateAll(t, validator, ptrData.Interface(), presentRuleError(""), errKeySuffixes...)
+			testValidateAllKeys(t, validator, rawData,
+				joinAll(tc.errorKeys, presentRuleKey), joinAll(tc.invalidKeys, invalidKey))
+			testValidateAllKeys(t, validator, ptrData.Interface(),
+				joinAll(tc.errorKeys, presentRuleKey), joinAll(tc.invalidKeys, invalidKey))
 		})
 	}
 }
@@ -1396,8 +1400,8 @@ func TestValueAnyVldr_ValidateAll(t *testing.T) {
 		result         ErrorMap
 		typeCheckError bool
 	}{
-		{name: "invalid", rule: presentRule{}, data: nil, result: errInvalidValue()},
-		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: errInvalidValue()},
+		{name: "invalid", rule: presentRule{}, data: nil, result: ErrInvalidValue()},
+		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: ErrInvalidValue()},
 		{name: "bad_type_with_rule_validator", rule: onlyKindRule{kind: reflect.String}, data: 1, newError: true},
 		{name: "bad_type_after_new", rule: onlyKindRule{kind: reflect.Bool}, data: 1, typeCheckError: true},
 	}
@@ -1473,8 +1477,8 @@ func TestRuleVldr_ValidateAll(t *testing.T) {
 		result         ErrorMap
 		typeCheckError bool
 	}{
-		{name: "invalid", rule: presentRule{}, data: nil, result: errInvalidValue()},
-		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: errInvalidValue()},
+		{name: "invalid", rule: presentRule{}, data: nil, result: ErrInvalidValue()},
+		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: ErrInvalidValue()},
 		{name: "bad_type", rule: onlyKindRule{kind: reflect.Bool}, data: 1, typeCheckError: true},
 	}
 	for _, tc := range edgeTcs {
@@ -1501,8 +1505,7 @@ func TestRuleVldr_ValidateAll(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			// RuleVldr.ValidateValue is Rule's promoted method, so it returns the raw, unmerged rule result
-			testValidateAllExpected(t, false, validator, tc.data, suffixErrorMap(tc.err, []string{presentRuleKey}))
+			testValidateAll(t, validator, tc.data, tc.err, presentRuleKey)
 			testValidateAll(t, validator, &tc.data, nil)
 		})
 	}

@@ -180,7 +180,7 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			}
 			if tc.name == "typed_nil" {
 				var data *registryParent
-				require.Equal(errInvalidValue(), registry.ValidateAny(data))
+				require.Equal(ErrInvalidValue(), registry.ValidateAny(data))
 				return
 			}
 			if strings.HasPrefix(tc.name, "not_found") {
@@ -201,23 +201,6 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			testValidateAll(t, registry, &data, tc.err, tc.expectedKeySuffix)
 		})
 	}
-}
-
-func TestRegistry_InvalidValue(t *testing.T) {
-	require := require.New(t)
-
-	registry := &Registry{}
-	require.NoError(registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
-
-	// panics without the IsValid guard
-	require.NotPanics(func() {
-		errorMap := registry.ValidateValue(reflect.Value{})
-		require.Nil(errorMap)
-	})
-
-	errorMap := ErrorMap{}
-	registry.ValidateMerge(reflect.Value{}, "key", errorMap)
-	require.Empty(errorMap)
 }
 
 func TestRegistry_DefaultedValidator(t *testing.T) {
@@ -298,38 +281,29 @@ func TestMultiPtr_ValidateAll(t *testing.T) {
 	tcs := []struct {
 		name        string
 		data        any
-		err         *TemplateError
 		keySuffixes []string
+		invalidKeys []string
 	}{
 		{name: "Child___valid", data: &ppGood},
-		{name: "Child___empty", data: &ppEmpty, err: presentRuleError(""),
-			keySuffixes: []string{joinKeys("Validates", presentRuleKey)}},
+		{name: "Child___empty", data: &ppEmpty,
+			keySuffixes: []string{"Validates"}},
 
 		{name: "Parent___valid", data: multiPtrParent{Ptr: &ppGood, Ptrs: &[]**Child{ppGood}}},
 		{name: "Parent___empty", data: multiPtrParent{},
-			err: presentRuleError(""), keySuffixes: []string{
-				joinKeys("Ptr", presentRuleKey),
-				joinKeys("Ptrs", presentRuleKey),
-			}},
+			invalidKeys: []string{"Ptr", "Ptrs"}},
 		{name: "Parent___Ptr_empty", data: multiPtrParent{Ptr: &ppEmpty, Ptrs: &[]**Child{ppGood}},
-			err: presentRuleError(""), keySuffixes: []string{
-				joinKeys("Ptr", presentRuleKey),
-				joinKeys("Ptr.Validates", presentRuleKey),
-			}},
+			keySuffixes: []string{"Ptr", "Ptr.Validates"}},
 		{name: "Parent__Ptr_nil", data: multiPtrParent{Ptr: ppNil, Ptrs: &[]**Child{ppGood}},
-			err: presentRuleError(""), keySuffixes: []string{
-				joinKeys("Ptr", presentRuleKey),
-			}},
+			// the nil Child behind the pointers surfaces an Invalid error
+			invalidKeys: []string{"Ptr"}},
 		{name: "Parent___Ptrs_mixed", data: multiPtrParent{Ptr: &ppGood, Ptrs: &[]**Child{nil, ppEmpty}},
-			// nil elements are indirected into invalid values and silently skipped by the RegistryBacker,
-			// so only the empty child surfaces errors
-			err: presentRuleError(""), keySuffixes: []string{
-				joinKeys("Ptrs.[1].Validates", presentRuleKey),
-			}},
+			// the nil element surfaces an Invalid error, while the empty child surfaces errors
+			keySuffixes: []string{"Ptrs.[1].Validates"},
+			invalidKeys: []string{"Ptrs.[0]"}},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			testValidateAll(t, registry, tc.data, tc.err, tc.keySuffixes...)
+			testValidateAllKeys(t, registry, tc.data, joinAll(tc.keySuffixes, presentRuleKey), joinAll(tc.invalidKeys, invalidKey))
 		})
 	}
 }

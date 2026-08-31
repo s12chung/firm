@@ -10,6 +10,7 @@ import (
 
 const nilName = "nil"
 const presentRuleKey = "presentRule"
+const invalidKey = "Invalid"
 
 func typeName(value reflect.Value) string {
 	if !value.IsValid() {
@@ -43,20 +44,47 @@ func presentRuleError(errorKey ErrorKey) *TemplateError {
 	return &TemplateError{ErrorKey: errorKey, Template: presentRuleKey + " template"}
 }
 
+// invalidError returns the Invalid error the validators use for invalid values
+func invalidError(errorKey ErrorKey) *TemplateError {
+	templateError := ErrInvalidValue()["Invalid"]
+	templateError.ErrorKey = errorKey
+	return &templateError
+}
+
 func typeCheckErrorResult(rule Rule, data any) ErrorMap {
 	return ErrorMap{"TypeCheck": rule.TypeCheck(reflect.TypeOf(data)).TemplateError()}
 }
 
+// joinAll joins each key with the suffix
+func joinAll(keys []string, suffix string) []string {
+	joined := make([]string, len(keys))
+	for i, key := range keys {
+		joined[i] = joinKeys(key, suffix)
+	}
+	return joined
+}
+
 // testValidateAll asserts ValidateAny/ValidateValue/ValidateMerge, expecting err keyed at every keySuffix
 func testValidateAll(t *testing.T, validator Validator, data any, err *TemplateError, keySuffixes ...string) {
-	testValidateAllExpected(t, false, validator, data, suffixErrorMap(err, keySuffixes).Finish())
+	testValidateAllExpected(t, false, validator, data, suffixErrorMap(err, keySuffixes))
+}
+
+// testValidateAllKeys asserts with presentRule errors at keySuffixes and Invalid errors at invalidKeySuffixes
+func testValidateAllKeys(t *testing.T, validator Validator, data any, keySuffixes, invalidKeySuffixes []string) {
+	expected := suffixErrorMap(presentRuleError(""), keySuffixes)
+	for key, err := range suffixErrorMap(invalidError(""), invalidKeySuffixes) {
+		if expected == nil {
+			expected = ErrorMap{}
+		}
+		expected[key] = err
+	}
+	testValidateAllExpected(t, false, validator, data, expected)
 }
 
 func testValidateAllFull(t *testing.T, skipValidate bool, validator Validator, data any, err *TemplateError, keySuffixes ...string) {
-	testValidateAllExpected(t, skipValidate, validator, data, suffixErrorMap(err, keySuffixes).Finish())
+	testValidateAllExpected(t, skipValidate, validator, data, suffixErrorMap(err, keySuffixes))
 }
 
-// suffixErrorMap keys err at every keySuffix
 func suffixErrorMap(err *TemplateError, keySuffixes []string) ErrorMap {
 	var expected ErrorMap
 	if err != nil && len(keySuffixes) > 0 {
@@ -79,7 +107,7 @@ func testValidateAllExpected(t *testing.T, skipValidate bool, validator Validato
 		require.Equal(validateExpected.Finish(), validator.ValidateAny(data))
 	}
 	indirectValue := indirect(reflect.ValueOf(data))
-	require.Equal(validateValueExpected, validator.ValidateValue(indirectValue))
+	require.Equal(validateValueExpected.Finish(), validator.ValidateValue(indirectValue))
 
 	errorKey := "pkger.Mover.Parent"
 	errorMap := ErrorMap{"Existing": TemplateError{}}
@@ -90,7 +118,8 @@ func testValidateAllExpected(t *testing.T, skipValidate bool, validator Validato
 		mergedErr.ErrorKey = key
 		expectedErrorMap[key] = mergedErr
 	}
-	validator.ValidateMerge(indirect(reflect.ValueOf(data)), errorKey, errorMap)
+	indirectValue = indirect(reflect.ValueOf(data))
+	validator.ValidateMerge(indirectValue, errorKey, errorMap)
 	require.Equal(expectedErrorMap, errorMap)
 }
 

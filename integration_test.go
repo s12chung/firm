@@ -194,7 +194,7 @@ func TestIntegration(t *testing.T) {
 	for i, v := range structValidatorTestCases {
 		integrationTestCases[i] = integrationTestCase{
 			name:    v.name,
-			isValid: len(v.errorKeys) == 0,
+			isValid: len(v.errorKeys) == 0 && len(v.invalidKeys) == 0,
 			f:       v.f,
 		}
 	}

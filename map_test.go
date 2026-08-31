@@ -82,10 +82,10 @@ func TestKeysAnyVldr_ValidateAll(t *testing.T) {
 			i := 1
 			return map[*int]sliceValidatorElement{&i: {Int: 1}}
 		}},
-		{name: "Ptr_Key_nil", validator: ptrKeysValidator, errorKeys: []string{"[<nil>]"}, f: func() any {
+		{name: "Ptr_Key_nil", validator: ptrKeysValidator, invalidKeys: []string{"[<nil>]"}, f: func() any {
 			return map[*int]sliceValidatorElement{nil: {Int: 1}}
 		}},
-		{name: "Ptr_Key_nil_mixed", validator: ptrKeysValidator, errorKeys: []string{"[<nil>]", "[0]"}, f: func() any {
+		{name: "Ptr_Key_nil_mixed", validator: ptrKeysValidator, errorKeys: []string{"[0]"}, invalidKeys: []string{"[<nil>]"}, f: func() any {
 			zero := 0
 			return map[*int]sliceValidatorElement{nil: {Int: 1}, &zero: {Int: 1}}
 		}},
@@ -180,12 +180,12 @@ func TestValuesAnyVldr_ValidateAll(t *testing.T) {
 			return map[string]*sliceValidatorElement{"a": {Int: 1}, "b": {Int: 2}}
 		}},
 		{name: "Ptr_Value_nil", validator: ptrValuesValidator,
-			// presentRule flags the invalid value, while the FieldsAnyVldr validator silently skips it
-			errorKeys: []string{"[a]"}, f: func() any {
+			// the invalid value errors and never reaches the rules
+			invalidKeys: []string{"[a]"}, f: func() any {
 				return map[string]*sliceValidatorElement{"a": nil}
 			}},
 		{name: "Ptr_Value_nil_mixed", validator: ptrValuesValidator,
-			errorKeys: []string{"[b]", "[c]", "[c].Int"}, f: func() any {
+			errorKeys: []string{"[c]", "[c].Int"}, invalidKeys: []string{"[b]"}, f: func() any {
 				return map[string]*sliceValidatorElement{"a": {Int: 1}, "b": nil, "c": {}}
 			}},
 
@@ -196,7 +196,7 @@ func TestValuesAnyVldr_ValidateAll(t *testing.T) {
 			return &map[string]**sliceValidatorElement{"a": toElemPtrPtr(sliceValidatorElement{Int: 1})}
 		}},
 		{name: "Double_Ptr_Value_nil_mixed", validator: ptrPtValuesValidator,
-			errorKeys: []string{"[b]", "[c]", "[c].Int"}, f: func() any {
+			errorKeys: []string{"[c]", "[c].Int"}, invalidKeys: []string{"[b]"}, f: func() any {
 				return &map[string]**sliceValidatorElement{
 					"a": toElemPtrPtr(sliceValidatorElement{Int: 1}), "b": nil, "c": toElemPtrPtr(sliceValidatorElement{})}
 			}},
@@ -315,7 +315,7 @@ func TestKeyValuesAnyVldr_ValidateAll(t *testing.T) {
 		{name: "Ptr_Value_valid", validator: ptrKeyValuesValidator, errorKeys: nil, f: func() any {
 			return map[string]*sliceValidatorElement{"a": {Int: 1}}
 		}},
-		{name: "Ptr_Value_nil", validator: ptrKeyValuesValidator, errorKeys: []string{"[a].Value"}, f: func() any {
+		{name: "Ptr_Value_nil", validator: ptrKeyValuesValidator, invalidKeys: []string{"[a].Value"}, f: func() any {
 			return map[string]*sliceValidatorElement{"a": nil}
 		}},
 	}, validator)
@@ -338,6 +338,8 @@ type mapValidatorTestCase struct {
 	// defaults to the test's default validator
 	validator Validator
 	errorKeys []string
+	// invalidKeys keys Invalid errors for invalid values (e.g. nil pointer keys/values)
+	invalidKeys []string
 }
 
 type anyWithErrTC struct {
@@ -386,8 +388,8 @@ func testMapValidateAllTypes(t *testing.T, validator Validator, nilPtrData any) 
 		result ErrorMap
 	}{
 		{name: "not_map", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: errInvalidValue()},
-		{name: "nil_pointer", data: nilPtrData, result: errInvalidValue()},
+		{name: "invalid", data: nil, result: ErrInvalidValue()},
+		{name: "nil_pointer", data: nilPtrData, result: ErrInvalidValue()},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
@@ -403,15 +405,13 @@ func testMapValidateAllCases(t *testing.T, cases []mapValidatorTestCase, default
 				validator = defaultValidator
 			}
 			rawData := tc.f()
-			errKeySuffixes := make([]string, len(tc.errorKeys))
-			for i, key := range tc.errorKeys {
-				errKeySuffixes[i] = joinKeys(key, presentRuleKey)
-			}
 			// rawData comes boxed in an any, so &rawData would be a *any; build a typed pointer instead
 			ptrData := reflect.New(reflect.TypeOf(rawData))
 			ptrData.Elem().Set(reflect.ValueOf(rawData))
-			testValidateAll(t, validator, rawData, presentRuleError(""), errKeySuffixes...)
-			testValidateAll(t, validator, ptrData.Interface(), presentRuleError(""), errKeySuffixes...)
+			testValidateAllKeys(t, validator, rawData,
+				joinAll(tc.errorKeys, presentRuleKey), joinAll(tc.invalidKeys, invalidKey))
+			testValidateAllKeys(t, validator, ptrData.Interface(),
+				joinAll(tc.errorKeys, presentRuleKey), joinAll(tc.invalidKeys, invalidKey))
 		})
 	}
 }

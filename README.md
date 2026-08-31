@@ -101,8 +101,8 @@ Validation failures return `firm.ErrorMap`, a map of `firm.ErrorKey` to `firm.Te
 Validation occurs recursively down levels on these types:
 
 - `firm.Registry` is a mapping of types to `firm.Validator`. `firm.MustRegisterType()` runs `firm.DefaultRegistry.MustRegisterType()`. Also, handles recursion, see [Recursion](#recursion) section
-- `firm.Validator` is an interface, where built-in implementations act as wrappers around `firm.Rule`s
-- `firm.Rule` are validation rules, which expect **non-pointers only** and all layers of indirection are handled by the built-in `firm.Validator`s. Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. The same rules will apply the same slice and same `Child`.
+- `firm.Validator` is an interface, where built-in implementations act as wrappers around `firm.Rule`s. Handles all pointers and layers of indirection for `firm.Rule` to ensure "safe values" (see [Types, Pointers, and Invalid Values](#types-pointers-and-invalid-values)). Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. The same rules will apply the same slice and same `Child`.
+- `firm.Rule` are validation rules, which expect **non-pointers only**
 
 The go-to validation function is `ValidateAny(data any) ErrorMap`, which is implemented on `firm.Registry` and `firm.Validator`. Accepts anything--values or pointers, including nil pointers. Also handles invalid types.
 
@@ -124,12 +124,21 @@ errMap := typedValueValidator.ValidateAny(-1)
 ```
 
 - `Validate(data T) ErrorMap` is a typed `ValidateAny()` via generics--the `data` arg is typed, but rules can be any `firm.Rule`. More complicated, but avoids reflection and enforces type safety.
-- `ValidateValue(value reflect.Value) ErrorMap` is implemented on all the types described above. Annoying to use, but a good abstraction.
+- `ValidateValue(value reflect.Value) ErrorMap` is implemented on all the types described above. Unlike `ValidateAny()/Validate()`, it expects "safe values" (see [Types, Pointers, and Invalid Values](#types-pointers-and-invalid-values)).
 
 ```go
 typedValueValidator := firm.Value[int](rule.Greater[int]{To: 0})
 errMap := typedValueValidator.Validate(-1)
 ```
+
+### Types, Pointers, and Invalid Values
+
+To simplify `firm.Validator` and `firm.Rule` implementations, there are caller contracts to contain complexity:
+
+- **Type Coherence**: On validation creation (`RegisterType()` or any validator constructor), `firm.Rule.TypeCheck()` is called to ensure type coherence with the validator
+- **Safe Values**: Safe values are defined as non-pointer valid `reflect.Value`s. There are two public use interfaces: `ValidateAny()/Validate()`. **Only these functions** may receive an unsafe value. Pointers are indirected and invalid  `reflect.Value`s return a `firm.ErrInvalidValue()`. They must also ensure that only safe values are passed down to:
+   - `firm.Rule`
+   - `ValidateMerge()` - `ValidateMerge()` may need to recurse, when doing so, it must also ensure that only safe values are passed down to `firm.Rule`
 
 ### Rules
 
@@ -264,12 +273,18 @@ The `rule.Attribute` interface does the value derivations. Built-in attributes a
 ```go
 type Validator interface {
 	Rule
+	// Public use interface - may receive an "unsafe" value and answers it with firm.ErrInvalidValue(),
+	// must also ensure only "safe" values are passed down to:
+	// - firm.Rule
+	// - ValidateMerge() below
+	//
+	// See Types, Pointers, and Invalid Values section above
 	ValidateAny(data any) ErrorMap
 	ValidateMerge(value reflect.Value, key string, errorMap ErrorMap)
 }
 ```
 
-A wrapper around `firm.Rule` to avoid reflection and handle `firm.ErrorMap` merging. Basically, a clean way to call `ValidateAny(data any) ErrorMap`. Can be used independently:
+A wrapper around `firm.Rule` to avoid reflection and handle `firm.ErrorMap` merging. Basically, a clean way to call `ValidateAny(data any) ErrorMap`. Can be used independently, like in the example below.
 
 ```go
 typedValueValidator := firm.Value[int](rule.Greater[int]{To: 0})
@@ -298,6 +313,12 @@ All constructors in the table above `panic()` when there is an error and have a 
 ```go
 type ValidatorTyped[T any] interface {
 	Validator
+	// Public use interface - may receive an "unsafe" value and answers it with firm.ErrInvalidValue(),
+	// must also ensure only "safe" values are passed down to:
+	// - firm.Rule
+	// - ValidateMerge() below
+	//
+	// See Types, Pointers, and Invalid Values section above
 	Validate(data T) ErrorMap
 }
 ```
@@ -346,7 +367,7 @@ firm.MustRegisterType(
 
 `firm.MustRegisterType()/Backed()` is shorthand for `firm.DefaultRegistry.MustRegisterType()/Backed()`. You can use your own registry too (`&firm.Registry{}`). Registries allow explicit recursion "backed" by `firm.DefaultRegistry` by using the type map to find `Query`'s validator.
 
-Pass **anything** to `ValidateAny(data any)`--the type is inferred to validate with the correct `firm.Validator`. Like all built-in validators, all pointers are indirected. Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. The same rules will apply the same slice and same `Child`. Unregistered types return "not found in Registry" error.
+Pass **anything** to `ValidateAny(data any)`--the type is inferred to validate with the correct `firm.Validator`. Like all built-in validators, all pointers are indirected to ensure "safe values" (see [Types, Pointers, and Invalid Values](#types-pointers-and-invalid-values)). Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. The same rules will apply the same slice and same `Child`. Unregistered types return "not found in Registry" error.
 
 `firm.DefaultRegistry.Backed()` returns a `firm.RegistryBacker`, which basically proxies every call to `firm.DefaultRegistry` and handles a gotcha.
 

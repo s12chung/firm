@@ -89,11 +89,7 @@ func (r *Registry) ValidateAny(data any) ErrorMap {
 }
 
 // ValidateValue validates the data value with the correct validator (assumes TypeCheck is called)
-func (r *Registry) ValidateValue(value reflect.Value) ErrorMap {
-	errorMap := ErrorMap{}
-	r.ValidateMerge(value, "", errorMap)
-	return errorMap.ToNil()
-}
+func (r *Registry) ValidateValue(value reflect.Value) ErrorMap { return validateValue(r, value) }
 
 // TypeCheck checks whether the type is valid for the Rule
 func (r *Registry) TypeCheck(typ reflect.Type) *RuleTypeError {
@@ -102,9 +98,6 @@ func (r *Registry) TypeCheck(typ reflect.Type) *RuleTypeError {
 
 // ValidateMerge validates the data value with the correct validator, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (r *Registry) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
-	if !value.IsValid() {
-		return
-	}
 	r.DefaultedValidator(value.Type()).ValidateMerge(value, key, errorMap)
 }
 
@@ -156,17 +149,10 @@ func (b RegistryBacker) ValidateAny(data any) ErrorMap {
 }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
-func (b RegistryBacker) ValidateValue(value reflect.Value) ErrorMap {
-	errorMap := ErrorMap{}
-	b.ValidateMerge(value, "", errorMap)
-	return errorMap.ToNil()
-}
+func (b RegistryBacker) ValidateValue(value reflect.Value) ErrorMap { return validateValue(b, value) }
 
 // ValidateMerge validates the data value, also doing a merge with the errorMap (assumes TypeCheck is called)
 func (b RegistryBacker) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
-	if !value.IsValid() {
-		return
-	}
 	if b.typ == nil {
 		b.Registry.ValidateMerge(value, key, errorMap)
 		return
