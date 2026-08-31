@@ -75,7 +75,7 @@ func TestRegistry_RegisterType(t *testing.T) {
 				FieldsAnyVldr{typ: registryParentType, ruleMap: map[string][]Rule{
 					// stamped at registration with the field's type
 					"Child": {RegistryBacker{Registry: registry, typ: registryChildType}},
-				}},
+				}, fieldIndexes: map[string][]int{"Child": {1}}},
 			}},
 	}
 	require.Equal(typeToValidator, registry.typeToValidator)
@@ -108,7 +108,11 @@ func TestRegistry_RegisterType_NonStruct(t *testing.T) {
 func notFoundError(data any) ErrorMap {
 	value := indirect(reflect.ValueOf(data))
 	errorMap := ErrorMap{}
-	DefaultValidator.ValidateMerge(value, typeName(value), errorMap)
+	key := typeName(value)
+	if value.Type() == nilValueType {
+		key = "" // nilType stand-ins are not named
+	}
+	DefaultValidator.ValidateMerge(value, key, errorMap)
 	return errorMap.Finish()
 }
 

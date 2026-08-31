@@ -32,6 +32,7 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 	}
 
 	rm := map[string][]Rule{}
+	fieldIndexes := map[string][]int{}
 	for fieldName, rules := range ruleMap {
 		field, found := typ.FieldByName(fieldName)
 		if !found {
@@ -45,8 +46,9 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 			return FieldsAnyVldr{}, err
 		}
 		rm[fieldName] = rules
+		fieldIndexes[fieldName] = field.Index
 	}
-	return FieldsAnyVldr{typ: typ, ruleMap: rm}, nil
+	return FieldsAnyVldr{typ: typ, ruleMap: rm, fieldIndexes: fieldIndexes}, nil
 }
 
 // FieldsVldr validates structs
@@ -59,6 +61,8 @@ func (s FieldsVldr[T]) Validate(data T) ErrorMap { return validate(s, data) }
 type FieldsAnyVldr struct {
 	typ     reflect.Type
 	ruleMap map[string][]Rule
+	// fieldIndexes maps the StructField Name to the Index of each field in ruleMap, cached to avoid per-validation FieldByName() lookups
+	fieldIndexes map[string][]int
 }
 
 // Type returns the Type the Validator handles
@@ -77,7 +81,7 @@ func (s FieldsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap E
 	}
 	for fieldName, rules := range s.ruleMap {
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(value.FieldByName(fieldName)), joinKeys(key, fieldName), errorMap, rules)
+		validateMerge(indirect(fieldByIndex(value, s.fieldIndexes[fieldName])), joinKeys(key, fieldName), errorMap, rules)
 	}
 }
 
@@ -292,8 +296,13 @@ func validateValueResult(validator Validator, value reflect.Value) ErrorMap {
 		return ErrorMap{"TypeCheck": err.TemplateError()}
 	}
 
+	// nilType stand-ins have no user-facing type, so they are not named in the key
+	key := typ.String()
+	if typ == nilValueType {
+		key = ""
+	}
 	errorMap := ErrorMap{}
-	validator.ValidateMerge(value, typ.String(), errorMap)
+	validator.ValidateMerge(value, key, errorMap)
 	return errorMap.Finish()
 }
 

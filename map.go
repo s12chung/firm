@@ -63,7 +63,8 @@ func (s KeysAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap Err
 	}
 	for iter := value.MapRange(); iter.Next(); {
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(iter.Key()), joinKeys(key, mapErrorKey(iter.Key())), errorMap, s.keyRules)
+		keyValue := indirect(iter.Key())
+		validateMerge(keyValue, joinKeys(key, mapErrorKey(keyValue)), errorMap, s.keyRules)
 	}
 }
 
@@ -137,7 +138,7 @@ func (s ValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap E
 	}
 	for iter := value.MapRange(); iter.Next(); {
 		// indirect to ensure passing a non-pointer down to a Rule
-		validateMerge(indirect(iter.Value()), joinKeys(key, mapErrorKey(iter.Key())), errorMap, s.valueRules)
+		validateMerge(indirect(iter.Value()), joinKeys(key, mapErrorKey(indirect(iter.Key()))), errorMap, s.valueRules)
 	}
 }
 
@@ -213,7 +214,7 @@ func (s KeyValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMa
 		// passed down as a Map with only 1 key-value pair
 		keyValue := reflect.MakeMapWithSize(s.typ, 1)
 		keyValue.SetMapIndex(iter.Key(), iter.Value())
-		validateMerge(keyValue, joinKeys(key, mapErrorKey(iter.Key())), errorMap, s.keyValueRules)
+		validateMerge(keyValue, joinKeys(key, mapErrorKey(indirect(iter.Key()))), errorMap, s.keyValueRules)
 	}
 }
 

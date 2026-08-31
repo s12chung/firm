@@ -20,7 +20,7 @@ var (
 	DefaultRegistry = &Registry{}
 )
 
-// DefaultValidator is the validator used by registries for not found types when DefaultValidator is not defined
+// DefaultValidator is the validator used by registries for not found types when Registry.DefaultValidator is not defined
 var DefaultValidator = RuleVldr{Rule: NotFoundRule{}}
 
 // NotFoundRule is the rule used for not found types in the DefaultValidator
@@ -28,7 +28,8 @@ type NotFoundRule struct{}
 
 // ValidateValue validates the value, naming the value's type as not found in the Registry
 func (n NotFoundRule) ValidateValue(value reflect.Value) ErrorMap {
-	if !value.IsValid() {
+	// invalid values and nilType stand-ins have no type to name
+	if !value.IsValid() || value.Type() == nilValueType {
 		return n.ErrorMap()
 	}
 	return ErrorMap{"NotFound": TemplateError{

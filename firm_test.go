@@ -19,4 +19,8 @@ func TestNotFoundRule_ValidateValue(t *testing.T) {
 
 	require.Equal(NotFoundRule{}.ErrorMap(), NotFoundRule{}.ValidateValue(reflect.Value{}))
 	require.Equal("NotFound: value type, NoType, not found in Registry", NotFoundRule{}.ErrorMap().Finish().Error())
+
+	// nilType stand-ins are not named
+	require.Equal(NotFoundRule{}.ErrorMap(), NotFoundRule{}.ValidateValue(nilValue))
+	require.Equal("NotFound: value type, NoType, not found in Registry", NotFoundRule{}.ValidateValue(nilValue).Finish().Error())
 }

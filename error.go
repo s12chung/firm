@@ -3,7 +3,7 @@ package firm
 import (
 	"maps"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"text/template"
 )
@@ -15,21 +15,20 @@ type ErrorMap map[ErrorKey]TemplateError
 
 func (e ErrorMap) Error() string {
 	errors := make([]string, len(e))
-	keys := e.sortedKeys()
-	for i, k := range keys {
-		errors[i] = k + ": " + e[ErrorKey(k)].Error()
+	for i, k := range e.sortedKeys() {
+		errors[i] = string(k) + ": " + e[k].Error()
 	}
 	return strings.Join(errors, ", ")
 }
 
-func (e ErrorMap) sortedKeys() []string {
-	keys := make([]string, len(e))
+func (e ErrorMap) sortedKeys() []ErrorKey {
+	keys := make([]ErrorKey, len(e))
 	i := 0
 	for k := range e {
-		keys[i] = string(k)
+		keys[i] = k
 		i++
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	return keys
 }
 

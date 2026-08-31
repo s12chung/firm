@@ -1067,6 +1067,22 @@ func TestFieldsAnyVldr_ValidateAll(t *testing.T) {
 	}
 }
 
+func TestFieldsAnyVldr_NilEmbeddedPointerField(t *testing.T) {
+	require := require.New(t)
+
+	validator, err := FieldsAnyWithErr(reflect.TypeFor[embeddedPtFields](), RuleMap{
+		"Validates": {presentRule{}},
+		"Str":       {presentRule{}},
+	})
+	require.NoError(err)
+
+	errorKey := ErrorKey("Validates." + presentRuleKey)
+	expected := ErrorMap{errorKey: *presentRuleError("")}
+	// Child: nil is the embedded pointer field
+	require.Equal(expected, validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
+	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
+}
+
 func TestFieldsAnyVldr_TypeCheck(t *testing.T) {
 	validator, err := FieldsAnyWithErr(reflect.TypeFor[parent](), RuleMap{})
 	require.NoError(t, err)
@@ -1090,6 +1106,12 @@ func TestFieldsAnyVldr_TypeCheck(t *testing.T) {
 			})
 		})
 	}
+}
+
+type embeddedPtFields struct {
+	*Child
+
+	Str string
 }
 
 type sliceValidatorElement struct {

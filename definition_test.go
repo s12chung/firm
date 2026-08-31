@@ -14,6 +14,7 @@ func TestNewDefinition(t *testing.T) {
 	require.NotPanics(func() { NewDefinition[int]() })    // non-struct
 	require.NotPanics(func() { NewDefinition[*Child]() }) // pointer, indirected
 	require.Equal(reflect.TypeFor[Child](), NewDefinition[**Child]().Type())
+	require.Panics(func() { NewDefinition[any]() }) // interface, no type
 }
 
 func TestDefinition_ValidatesSelf(t *testing.T) {

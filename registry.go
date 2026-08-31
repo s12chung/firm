@@ -75,6 +75,9 @@ type nilType struct{}
 // nilValue is used when the data is invalid (e.g. nil), since the type can't be inferred
 var nilValue = reflect.ValueOf(nilType{})
 
+// nilValueType is used to stand-in values, without naming nilType in errors
+var nilValueType = reflect.TypeFor[nilType]()
+
 // ValidateAny validates the data with the correct validator
 func (r *Registry) ValidateAny(data any) ErrorMap {
 	value := reflect.ValueOf(data)

@@ -5,12 +5,16 @@ import (
 	"reflect"
 )
 
-// NewDefinition returns a new Definition. Pointer types are indirected to their value type
+// NewDefinition returns a new Definition. Pointer types are indirected to their value type.
+// The type parameter cannot be an interface type, since its zero value has no type
 func NewDefinition[T any]() *Definition {
 	var zero T
-	typ := indirectType(reflect.TypeOf(zero))
+	typ := reflect.TypeOf(zero)
+	if typ == nil {
+		panic("NewDefinition() called with an interface type--the type of its zero value is nil")
+	}
 	validator := &Definition{
-		typ:       typ,
+		typ:       indirectType(typ),
 		selfRules: []Rule{},
 		ruleMap:   RuleMap{},
 	}

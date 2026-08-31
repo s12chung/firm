@@ -22,6 +22,25 @@ func indirectType(typ reflect.Type) reflect.Type {
 	return typ
 }
 
+// fieldByIndex returns the field Value corresponding to the index
+func fieldByIndex(value reflect.Value, index []int) reflect.Value {
+	for i, x := range index {
+		if i > 0 {
+			if value.Kind() == reflect.Pointer {
+				if value.IsNil() {
+					return reflect.Value{}
+				}
+				value = value.Elem()
+			}
+			if value.Kind() != reflect.Struct {
+				return reflect.Value{}
+			}
+		}
+		value = value.Field(x)
+	}
+	return value
+}
+
 // typeOfKind returns the indirected type, ensuring the type is one of the kinds
 func typeOfKind(vdlrClass string, typ reflect.Type, kinds ...reflect.Kind) (reflect.Type, error) {
 	badType := "nil"
@@ -63,7 +82,6 @@ func joinKeys[T ~string](keys ...T) T {
 func sliceErrorKey(i int) string { return "[" + strconv.Itoa(i) + "]" }
 
 func mapErrorKey(key reflect.Value) string {
-	key = indirect(key)
 	if !key.IsValid() {
 		return "[<nil>]"
 	}
