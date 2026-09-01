@@ -41,7 +41,7 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 		if !field.IsExported() {
 			return FieldsAnyVldr{}, fmt.Errorf("Fields: field, %v, is unexported in type: %v", fieldName, typ.String())
 		}
-		rules, err := TypeCheckRules(field.Type, rules, fmt.Sprintf("Fields: field, %v, in %v", fieldName, typ.String()))
+		rules, err := TypeCheckAndBack(field.Type, rules, fmt.Sprintf("Fields: field, %v, in %v", fieldName, typ.String()))
 		if err != nil {
 			return FieldsAnyVldr{}, err
 		}
@@ -125,7 +125,7 @@ func ElemsAnyWithErr(typ reflect.Type, elementRules ...Rule) (ElemsAnyVldr, erro
 		return ElemsAnyVldr{}, err
 	}
 
-	elementRules, err = TypeCheckRules(typ.Elem(), elementRules, "Elems: element type")
+	elementRules, err = TypeCheckAndBack(typ.Elem(), elementRules, "Elems: element type")
 	if err != nil {
 		return ElemsAnyVldr{}, err
 	}
@@ -195,7 +195,7 @@ func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 		return ValueAnyVldr{}, errors.New("Value: type is nil")
 	}
 	typ = indirectType(typ)
-	rules, err := TypeCheckRules(typ, rules, "")
+	rules, err := TypeCheckAndBack(typ, rules, "")
 	if err != nil {
 		return ValueAnyVldr{}, err
 	}
@@ -352,9 +352,9 @@ func validateValueResult(validator Validator, value reflect.Value) ErrorMap {
 	return errorMap.ToNil()
 }
 
-// TypeCheckRules TypeChecks each rule against the indirected typ, wrapping any error with errContext,
+// TypeCheckAndBack TypeChecks each rule against the indirected typ, wrapping any error with errContext,
 // and returns rules with each RegistryBacker set to typ
-func TypeCheckRules(typ reflect.Type, rules []Rule, errContext string) ([]Rule, error) {
+func TypeCheckAndBack(typ reflect.Type, rules []Rule, errContext string) ([]Rule, error) {
 	for _, rule := range rules {
 		if err := rule.TypeCheck(indirectType(typ)); err != nil {
 			if errContext == "" {
@@ -368,7 +368,7 @@ func TypeCheckRules(typ reflect.Type, rules []Rule, errContext string) ([]Rule, 
 
 // stampRegistryBackers returns rules with each RegistryBacker set to typ
 //
-// Not stamped for custom validators due to TypeCheckRules() never being called.
+// Not stamped for custom validators due to TypeCheckAndBack() never being called.
 // Custom validators may not have a `typ` restriction, so it makes no sense.
 func stampRegistryBackers(rules []Rule, typ reflect.Type) []Rule {
 	if len(rules) == 0 {

@@ -347,7 +347,7 @@ Implement your own `firm.Validator` with these helpers:
 - `firm.ImplValidateMerge(value, key, errorMap, rules)` - implementation assumes `TypeCheck` is called, as it iterates `rules` and merges them into the errorMap. Panics on an invalid value with `firm.MustValidValue()`.
 - `firm.ImplValidateMergeIndirected(value, key, errorMap, rules)` - calls `firm.ImplValidateMerge()` after indirecting the value. If the indirected value is invalid (often from a `nil` pointer), `firm.ErrInvalidValue()` is merged into `errorMap` and the call to `firm.ImplValidateMerge()` is skipped.
 - `firm.ImplValidate(v, data)` - implementation does no type checking on runtime because `Validate()` is a typed function (often with generics)
-- `firm.TypeCheckRules(typ, rules, errContext)` - calls `firm.Rule.TypeCheck()` of each rule with the indirected `typ`, wrapping any error with `errContext` and handles the [Registry.Backed() gotcha](#registries)
+- `firm.TypeCheckAndBack(typ, rules, errContext)` - calls `firm.Rule.TypeCheck()` of each rule with the indirected `typ`, wrapping any error with `errContext` and handles the [Registry.Backed() gotcha](#registries)
 
 Ensure you enforce the caller contracts in [Types, Pointers, and Safe Values](#types-pointers-and-safe-values). `firm.ValueAnyVldr` in ([validator.go](validator.go)) is a simple example to build knowledge from.
 

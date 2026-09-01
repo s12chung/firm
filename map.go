@@ -29,7 +29,7 @@ func KeysAnyWithErr(typ reflect.Type, keyRules ...Rule) (KeysAnyVldr, error) {
 		return KeysAnyVldr{}, err
 	}
 
-	keyRules, err = TypeCheckRules(typ.Key(), keyRules, "Keys: key type")
+	keyRules, err = TypeCheckAndBack(typ.Key(), keyRules, "Keys: key type")
 	if err != nil {
 		return KeysAnyVldr{}, err
 	}
@@ -101,7 +101,7 @@ func ValuesAnyWithErr(typ reflect.Type, valueRules ...Rule) (ValuesAnyVldr, erro
 		return ValuesAnyVldr{}, err
 	}
 
-	valueRules, err = TypeCheckRules(typ.Elem(), valueRules, "Values: value type")
+	valueRules, err = TypeCheckAndBack(typ.Elem(), valueRules, "Values: value type")
 	if err != nil {
 		return ValuesAnyVldr{}, err
 	}
@@ -175,7 +175,7 @@ func KeyValuesAnyWithErr(typ reflect.Type, keyValueRules ...Rule) (KeyValuesAnyV
 		return KeyValuesAnyVldr{}, err
 	}
 
-	keyValueRules, err = TypeCheckRules(typ, keyValueRules, "KeyValues: key-value pair type")
+	keyValueRules, err = TypeCheckAndBack(typ, keyValueRules, "KeyValues: key-value pair type")
 	if err != nil {
 		return KeyValuesAnyVldr{}, err
 	}

@@ -137,18 +137,18 @@ func TestCustomValidatorPkg(t *testing.T) {
 	}, errorMap)
 }
 
-func TestTypeCheckRulesPkg(t *testing.T) {
+func TestTypeCheckAndBackPkg(t *testing.T) {
 	require := require.New(t)
 
-	rules, err := firm.TypeCheckRules(reflect.TypeFor[int](), []firm.Rule{rule.Greater[int]{To: 0}}, "")
+	rules, err := firm.TypeCheckAndBack(reflect.TypeFor[int](), []firm.Rule{rule.Greater[int]{To: 0}}, "")
 	require.NoError(err)
 	require.Equal([]firm.Rule{rule.Greater[int]{To: 0}}, rules)
 
-	rules, err = firm.TypeCheckRules(reflect.TypeFor[string](), []firm.Rule{rule.Greater[int]{To: 0}}, "")
+	rules, err = firm.TypeCheckAndBack(reflect.TypeFor[string](), []firm.Rule{rule.Greater[int]{To: 0}}, "")
 	require.Nil(rules)
 	require.EqualError(err, "Greater: value is not a int, got string")
 
-	rules, err = firm.TypeCheckRules(reflect.TypeFor[string](), []firm.Rule{rule.Greater[int]{To: 0}}, "Positive: element type")
+	rules, err = firm.TypeCheckAndBack(reflect.TypeFor[string](), []firm.Rule{rule.Greater[int]{To: 0}}, "Positive: element type")
 	require.Nil(rules)
 	require.EqualError(err, "Positive: element type: Greater: value is not a int, got string")
 }
