@@ -13,7 +13,8 @@ type structValidatorTestCase struct {
 	name      string
 	f         func() parent
 	errorKeys []string
-	// invalidKeys keys Invalid errors for invalid values (e.g. nil pointer fields)
+	// invalidKeys keys Invalid errors for invalid values that are still surfaced, e.g. nil values
+	// within KeyValues pairs--nil pointers elsewhere are skipped by default
 	invalidKeys []string
 }
 
@@ -88,7 +89,8 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.Pt = &Child{}
 		return changeParent
 	}},
-	{name: "Pt___nil", invalidKeys: []string{"Pt"}, f: func() parent {
+	{name: "Pt___nil", errorKeys: nil, f: func() parent {
+		// the nil pointer is skipped and never reaches the rules
 		changeParent := fullParent()
 		changeParent.Pt = nil
 		return changeParent
@@ -97,7 +99,8 @@ var structValidatorTestCases = []structValidatorTestCase{
 	//
 	// Multi
 	//
-	{name: "Multi", errorKeys: []string{"Child", "Child.Validates", "Primitive"}, invalidKeys: []string{"Pt"}, f: func() parent {
+	{name: "Multi", errorKeys: []string{"Child", "Child.Validates", "Primitive"}, f: func() parent {
+		// the nil Pt pointer is skipped
 		changeParent := fullParent()
 		changeParent.Child = Child{}
 		changeParent.Primitive = 0
@@ -298,7 +301,8 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtEmptyValidates = &Child{}
 		return changeParent
 	}},
-	{name: "PtEmptyValidates___nil", invalidKeys: []string{"PtEmptyValidates"}, f: func() parent {
+	{name: "PtEmptyValidates___nil", errorKeys: nil, f: func() parent {
+		// the nil pointer is skipped and never reaches the rules
 		changeParent := fullParent()
 		changeParent.PtEmptyValidates = nil
 		return changeParent
@@ -388,10 +392,10 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.SlicePtValidates = nil
 		return changeParent
 	}},
-	{name: "SlicePtValidates___nil_element", errorKeys: []string{"SlicePtValidates.[0].Validates"}, invalidKeys: []string{"SlicePtValidates.[1]"},
+	{name: "SlicePtValidates___nil_element", errorKeys: []string{"SlicePtValidates.[0].Validates"},
 		f: func() parent {
 			changeParent := fullParent()
-			// the empty child surfaces errors, while the nil element surfaces an Invalid error
+			// the empty child surfaces errors, while the nil element is skipped
 			changeParent.SlicePtValidates = []*Child{{}, nil}
 			return changeParent
 		}},
@@ -423,7 +427,8 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtSliceValidates = &[]Child{}
 		return changeParent
 	}},
-	{name: "PtSliceValidates___nil", invalidKeys: []string{"PtSliceValidates"}, f: func() parent {
+	{name: "PtSliceValidates___nil", errorKeys: nil, f: func() parent {
+		// the nil pointer is skipped and never reaches the rules
 		changeParent := fullParent()
 		changeParent.PtSliceValidates = nil
 		return changeParent
@@ -495,11 +500,10 @@ var structValidatorTestCases = []structValidatorTestCase{
 		return changeParent
 	}},
 	{name: "MapPtValidatesValues___nil_element",
-		errorKeys:   []string{"MapPtValidatesValues.[1].Validates"},
-		invalidKeys: []string{"MapPtValidatesValues.[2]"},
+		errorKeys: []string{"MapPtValidatesValues.[1].Validates"},
 		f: func() parent {
 			changeParent := fullParent()
-			// the empty child surfaces errors, while the nil element surfaces an Invalid error
+			// the empty child surfaces errors, while the nil element is skipped
 			changeParent.MapPtValidatesValues = map[string]*Child{"1": {}, "2": nil}
 			return changeParent
 		}},
@@ -535,7 +539,8 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtMapValidatesValues = &map[string]Child{}
 		return changeParent
 	}},
-	{name: "PtMapValidatesValues___nil", invalidKeys: []string{"PtMapValidatesValues"}, f: func() parent {
+	{name: "PtMapValidatesValues___nil", errorKeys: nil, f: func() parent {
+		// the nil pointer is skipped and never reaches the rules
 		changeParent := fullParent()
 		changeParent.PtMapValidatesValues = nil
 		return changeParent
@@ -618,7 +623,8 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtMapValidatesKeys = &map[string]Child{}
 		return changeParent
 	}},
-	{name: "PtMapValidatesKeys___nil", invalidKeys: []string{"PtMapValidatesKeys"}, f: func() parent {
+	{name: "PtMapValidatesKeys___nil", errorKeys: nil, f: func() parent {
+		// the nil pointer is skipped and never reaches the rules
 		changeParent := fullParent()
 		changeParent.PtMapValidatesKeys = nil
 		return changeParent
@@ -758,7 +764,8 @@ var structValidatorTestCases = []structValidatorTestCase{
 		changeParent.PtMapValidatesKeyValues = &map[string]Child{}
 		return changeParent
 	}},
-	{name: "PtMapValidatesKeyValues___nil", invalidKeys: []string{"PtMapValidatesKeyValues"}, f: func() parent {
+	{name: "PtMapValidatesKeyValues___nil", errorKeys: nil, f: func() parent {
+		// the nil pointer is skipped and never reaches the rules
 		changeParent := fullParent()
 		changeParent.PtMapValidatesKeyValues = nil
 		return changeParent
@@ -1079,11 +1086,15 @@ func TestFieldsAnyVldr_NilEmbeddedPointerField(t *testing.T) {
 	})
 	require.NoError(err)
 
-	// Child: nil is the embedded pointer field, so the Validates field's value is invalid and never reaches the rule
+	// Child: nil is the embedded pointer field, so the Validates field's value is invalid and skipped
+	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
+	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
+
+	// ErrOnNil flags the invalid Validates field value, merging an Invalid error
 	expected := ErrorMap{}
 	ErrInvalidValue().MergeInto("Validates", expected)
-	require.Equal(expected, validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
-	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
+	require.Equal(expected, validator.ErrOnNil("Validates").ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
+	require.Nil(validator.ErrOnNil("Validates").ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
 }
 
 func TestFieldsAnyVldr_TypeCheck(t *testing.T) {
@@ -1115,6 +1126,61 @@ type embeddedPtFields struct {
 	*Child
 
 	Str string
+}
+
+type errOnNilStruct struct {
+	Str string
+	Pt  *Child
+}
+
+func TestFieldsVldr_ErrOnNil(t *testing.T) {
+	newValidator := func() FieldsVldr[errOnNilStruct] {
+		return Fields[errOnNilStruct](RuleMap{
+			"Str": {presentRule{}},
+			"Pt":  {presentRule{}},
+		})
+	}
+	nilPt := errOnNilStruct{Str: "ok"}
+
+	t.Run("default_skips_nil", func(t *testing.T) {
+		require.Nil(t, newValidator().Validate(nilPt))
+	})
+	t.Run("named_fields", func(t *testing.T) {
+		expected := ErrorMap{}
+		ErrInvalidValue().MergeInto("firm.errOnNilStruct.Pt", expected)
+		require.Equal(t, expected, newValidator().ErrOnNil("Pt").Validate(nilPt))
+	})
+	t.Run("no_fields_panics", func(t *testing.T) {
+		_, err := newValidator().ErrOnNilWithErr()
+		require.EqualError(t, err, "ErrOnNil: no fields given")
+		require.Panics(t, func() { newValidator().ErrOnNil() })
+	})
+	t.Run("unknown_field_panics", func(t *testing.T) {
+		require.Panics(t, func() { newValidator().ErrOnNil("Nope") })
+	})
+	t.Run("unexported_field_panics", func(t *testing.T) {
+		require.Panics(t, func() {
+			Fields[Child](RuleMap{"Validates": {presentRule{}}}).ErrOnNil("private")
+		})
+	})
+	t.Run("field_not_in_rule_map_is_added_with_no_rules", func(t *testing.T) {
+		// the nil Pt is nil-checked only, while the presentRule on Pt is absent
+		validator := Fields[errOnNilStruct](RuleMap{"Str": {presentRule{}}})
+		expected := ErrorMap{}
+		ErrInvalidValue().MergeInto("firm.errOnNilStruct.Pt", expected)
+		require.Equal(t, expected, validator.ErrOnNil("Pt").Validate(nilPt))
+		require.Nil(t, validator.ErrOnNil("Pt").Validate(errOnNilStruct{Str: "ok", Pt: &Child{}}))
+	})
+	t.Run("setter_returns_a_copy", func(t *testing.T) {
+		validator := newValidator()
+		_ = validator.ErrOnNil("Pt")
+		require.Nil(t, validator.Validate(nilPt))
+	})
+	t.Run("non_nil_pointer_still_validates", func(t *testing.T) {
+		errorKey := ErrorKey("firm.errOnNilStruct.Pt." + presentRuleKey)
+		expected := ErrorMap{errorKey: *presentRuleError(errorKey)}
+		require.Equal(t, expected, newValidator().ErrOnNil("Pt").Validate(errOnNilStruct{Str: "ok", Pt: &Child{}}))
+	})
 }
 
 type sliceValidatorElement struct {
@@ -1159,7 +1225,7 @@ var sliceValidatorTestCases = []sliceValidatorTestCase{
 		return []*sliceValidatorElement{{Int: 1}, {Int: 2}}
 	}},
 	{name: "Ptr_Element_nil", validator: ptrElemsValidator,
-		// the invalid value errors and never reaches the rules
+		// the nil element is skipped by default, and errors with the ErrOnNil() variant
 		invalidKeys: []string{"[0]"}, f: func() any {
 			return []*sliceValidatorElement{nil}
 		}},
@@ -1202,6 +1268,7 @@ func TestElemsAny(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, ElemsAny(typ, presentRule{}))
 	require.Equal(t, expected, ElemsAny(reflect.TypeFor[*[]Child](), presentRule{}))
+	require.Equal(t, expected.ErrOnNil(), ElemsAny(typ, presentRule{}).ErrOnNil())
 
 	require.Panics(t, func() { ElemsAny(reflect.TypeFor[Child](), presentRule{}) })
 }
@@ -1284,14 +1351,19 @@ func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 			if validator == nil {
 				validator = elemsValidator
 			}
-			rawData := tc.f()
-			// rawData comes boxed in an any, so &rawData would be a *any; build a typed pointer instead
-			ptrData := reflect.New(reflect.TypeOf(rawData))
-			ptrData.Elem().Set(reflect.ValueOf(rawData))
-			testValidateAllKeys(t, validator, rawData,
-				joinAll(tc.errorKeys, presentRuleKey), joinAll(tc.invalidKeys, invalidKey))
-			testValidateAllKeys(t, validator, ptrData.Interface(),
-				joinAll(tc.errorKeys, presentRuleKey), joinAll(tc.invalidKeys, invalidKey))
+			run := func(v Validator, invalidKeySuffixes []string) {
+				rawData := tc.f()
+				// rawData comes boxed in an any, so &rawData would be a *any; build a typed pointer instead
+				ptrData := reflect.New(reflect.TypeOf(rawData))
+				ptrData.Elem().Set(reflect.ValueOf(rawData))
+				testValidateAllKeys(t, v, rawData, joinAll(tc.errorKeys, presentRuleKey), invalidKeySuffixes)
+				testValidateAllKeys(t, v, ptrData.Interface(),
+					joinAll(tc.errorKeys, presentRuleKey), invalidKeySuffixes)
+			}
+			run(validator, nil) // invalid values (e.g. nil pointers) are skipped by default
+			if errOnNilV := errOnNilValidator(validator); errOnNilV != nil {
+				run(errOnNilV, joinAll(tc.invalidKeys, invalidKey))
+			}
 		})
 	}
 }

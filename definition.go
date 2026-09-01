@@ -30,6 +30,10 @@ type Definition struct {
 
 	selfRulesSet bool
 	ruleMapSet   bool
+
+	// errOnNilFields flags fields to merge ErrInvalidValue() on, when the field's value is
+	// invalid (often from a nil pointer); nil is unset
+	errOnNilFields []string
 }
 
 // ValidatesSelf defines rules of "itself" as a Value
@@ -42,14 +46,33 @@ func (s *Definition) ValidatesSelf(rules ...Rule) *Definition {
 	return s
 }
 
-// Validates defines rules for fields
-// Field checks (struct type, field exists and exported) happen at RegisterType() via FieldsAnyWithErr()
+// Validates defines rules for fields. Panics on a non-struct type. Field checks happen at RegisterType()
 func (s *Definition) Validates(ruleMap RuleMap) *Definition {
+	if s.typ.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("Validates() called on a non-struct type: %v", s.typ.String()))
+	}
 	if s.ruleMapSet {
 		panic(fmt.Sprintf("Validates() called twice in type: %v", s.typ.String()))
 	}
 	s.ruleMapSet = true
 	s.ruleMap = ruleMap
+	return s
+}
+
+// ErrOnNil flags fields to merge firm.ErrInvalidValue() on, when the field's value is
+// invalid (often from a nil pointer), instead of skipping it. Fields must be exported.
+// Panics on a non-struct type, no fields given, or called twice. Field checks happen at RegisterType()
+func (s *Definition) ErrOnNil(fields ...string) *Definition {
+	if s.typ.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("ErrOnNil() called on a non-struct type: %v", s.typ.String()))
+	}
+	if s.errOnNilFields != nil {
+		panic(fmt.Sprintf("ErrOnNil() called twice in type: %v", s.typ.String()))
+	}
+	if len(fields) == 0 {
+		panic(fmt.Sprintf("ErrOnNil() called with no fields in type: %v", s.typ.String()))
+	}
+	s.errOnNilFields = fields
 	return s
 }
 

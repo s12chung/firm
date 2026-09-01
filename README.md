@@ -17,11 +17,11 @@ Register a definition per type (typically in `init()`, which avoids concurrent `
 //
 
 type Config struct {
-	Queries []Query `json:"queries,omitempty"`
+	Queries []Query `json:"queries"`
 }
 type Query struct {
-	Str string `json:"str,omitempty"`
-	POS string `json:"pos,omitempty"`
+	Str string  `json:"str"`
+	POS *string `json:"pos"`
 }
 
 func init() {
@@ -42,7 +42,7 @@ func init() {
 			// for each element (`firm.Elems()`),
 			// validate using the validation defined for `Query` "backed" by `firm.DefaultRegistry` `(`firm.Backed()`)
 			//
-			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}})`
+			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}}).ErrOnNil("POS")`
 			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
 			//
 			// `firm.Backed()` does not recurse into `nil` pointers; a `firm.ErrInvalidValue()` is merged instead
@@ -56,9 +56,13 @@ func init() {
 		firm.NewDefinition[Query]().
 			// For the `Str` string field,
 			// validate whether the string is present--a non-empty value (`rule.Present{}`)
+			//
+			// For the `POS` *string field,
+			// error when the pointer is nil (`ErrOnNil()`)
 			Validates(firm.RuleMap{
 				"Str": {rule.Present{}},
-			}))
+			}).
+			ErrOnNil("POS"))
 }
 
 func readConfig(body []byte) (Config, error) {
@@ -80,7 +84,7 @@ An invalid config returns a `firm.ErrorMap`, which implements `Error() string`. 
 
 ```sh
 go run github.com/s12chung/firm/cmd/firm-try@latest '{"queries":[{"str":""},{"pos":"Noun"}]}'
-# main.Config.Queries.[0].Str.Present: Str is not present, main.Config.Queries.[1].Str.Present: Str is not present
+# main.Config.Queries.[0].POS.Invalid: POS is not valid, main.Config.Queries.[0].Str.Present: Str is not present, main.Config.Queries.[1].Str.Present: Str is not present
 
 go run github.com/s12chung/firm/cmd/firm-try@latest '{}'
 # main.Config.Present: main.Config is not present
@@ -135,15 +139,21 @@ errMap := typedValueValidator.Validate(-1)
 
 To simplify `firm.Validator` and `firm.Rule` implementations, validators must uphold two contracts:
 
-- **Type Coherence**: On validation creation (`RegisterType()` or any validator constructor), `firm.Rule.TypeCheck()` is called to ensure type coherence with the validator
-- **Safe Values**: Safe values are defined as non-pointer valid `reflect.Value`s. There are two public use functions: `ValidateAny()/Validate()`. **Only these functions** may receive an unsafe value. Pointers are indirected and invalid `reflect.Value`s return a `firm.ErrInvalidValue(). `ValidateAny()/Validate()` must also ensure that only safe values are passed down to:
-   - `firm.Rule`
-   - `ValidateMerge()` - `ValidateMerge()` may need to recurse; when doing so, it converts unsafe values to safe ones--invalid values (often from a `nil` pointer) merge a `firm.ErrInvalidValue()` instead of going down a level. After `ValidateAny()/Validate()`, this function is the only place within `firm` that contains unsafe values.
+**Type Coherence**: On validation creation (`RegisterType()` or any validator constructor), `firm.Rule.TypeCheck()` is called to ensure type coherence with the validator 
+ 
+**Safe Values**: Safe values are defined as non-pointer valid `reflect.Value`s. There are two public use functions: `ValidateAny()/Validate()`. **Only these functions** may receive an unsafe value. Pointers are indirected and invalid `reflect.Value`s at these entry points return a `firm.ErrInvalidValue()`. `ValidateAny()/Validate()` must also ensure that only safe values are passed down to:
 
-```
-// Safe Values Flow
-unsafe values -> `ValidateAny()/Validate()` -> safe values -> `ValidateMerge()` unpacks an unsafe value from a recursive value -> within `ValidateMerge()` makes the unpacked value safe -> safe values until `ValidateMerge()` unpacks another recursive value
-```
+- `firm.Rule`
+- `ValidateMerge()`
+
+`ValidateMerge()` is the only place within `firm` that contains unsafe values, as it may need to recurse. When doing so, `ValidateMerge()` converts unsafe values to safe values by:
+
+- Indirecting the pointers
+- Skipping `reflect.Value` is invalid values (often from a `nil` pointers) by default. Built-in validators can call `ErrOnNil()` to merge a `firm.ErrInvalidValue()` before skipping.
+
+The safe values flow looks like this:
+
+> unsafe values -> `ValidateAny()/Validate()` -> safe values -> `ValidateMerge()` unpacks an unsafe value from a recursive value -> within `ValidateMerge()` makes the unpacked value safe -> safe values until `ValidateMerge()` unpacks another recursive value
 
 ### Rules
 
@@ -316,6 +326,23 @@ The `firm` package provides:
 
 All constructors in the table above `panic()` when there is an error and have a -`WithErr` suffixed version. Naming is intended to be cleanly declarative.
 
+By default, validators can recursively traverse into more values (`Fields`, `Elems`, `Keys`, `Values`) that may be pointers. All pointers are indirected. And by default, `nil` pointers are skipped. To provide errors on `nil` pointers instead, call `ErrOnNil()`.
+
+```go
+// For Elems (slice or array), require non-nil `Queries` elements
+firm.Elems[[]*Query](firm.Backed()).ErrOnNil()
+
+// For Fields (struct), require non-nil `Child`
+firm.Fields[Parent](firm.RuleMap{"Child": {firm.Backed()}}).ErrOnNil("Child")
+
+// Same as `firm.Fields`, but via a Definition
+firm.NewDefinition[Parent]().Validates(firm.RuleMap{
+	"Child": {firm.Backed()},
+}).ErrOnNil("Child")
+```
+
+Via generics, `firm.ValidatorTyped[T any]` can call `Validate()`. Avoids reflection and enforces type safety. Each of these validators wrap around a -`AnyVldr` suffixed validator, which require a `reflect.Type` with no generics.
+
 ```go
 type ValidatorTyped[T any] interface {
 	Validator
@@ -328,8 +355,6 @@ type ValidatorTyped[T any] interface {
 	Validate(data T) ErrorMap
 }
 ```
-
-Via generics, `firm.ValidatorTyped[T any]` can call `Validate()`. Avoids reflection and enforces type safety. Each of these validators wrap around a -`AnyVldr` suffixed validator, which require a `reflect.Type` with no generics.
 
 `firm.ValidatorTyped[T any]` can use any `firm.Rule`--not just typed ones!
 
@@ -345,7 +370,7 @@ Implement your own `firm.Validator` with these helpers:
 - `firm.ImplValidateValue(v, value)` - implementation assumes `TypeCheck` is called. Panics on an invalid value.
 - `firm.MustValidValue(value)` - panics when `value` is not valid. A helper function for nicer panic messages for invalid values in `ValidateMerge()`.
 - `firm.ImplValidateMerge(value, key, errorMap, rules)` - implementation assumes `TypeCheck` is called, as it iterates `rules` and merges them into the errorMap. Panics on an invalid value with `firm.MustValidValue()`.
-- `firm.ImplValidateMergeIndirected(value, key, errorMap, rules)` - calls `firm.ImplValidateMerge()` after indirecting the value. If the indirected value is invalid (often from a `nil` pointer), `firm.ErrInvalidValue()` is merged into `errorMap` and the call to `firm.ImplValidateMerge()` is skipped.
+- `firm.ImplValidateMergeIndirected(value, key, errorMap, rules, errOnNil)` - calls `firm.ImplValidateMerge()` after indirecting the value. If the indirected value is invalid (often from a `nil` pointer), `firm.ErrInvalidValue()` is merged into `errorMap` when `errOnNil` is set, and skipped otherwise. In both cases, the call to `firm.ImplValidateMerge()` is skipped.
 - `firm.ImplValidate(v, data)` - implementation does no type checking on runtime because `Validate()` is a typed function (often with generics)
 - `firm.TypeCheckAndBack(typ, rules, errContext)` - calls `firm.Rule.TypeCheck()` of each rule with the indirected `typ`, wrapping any error with `errContext` and handles the [Registry.Backed() gotcha](#registries)
 

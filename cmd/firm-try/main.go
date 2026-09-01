@@ -15,11 +15,11 @@ import (
 )
 
 type Config struct {
-	Queries []Query `json:"queries,omitempty"`
+	Queries []Query `json:"queries"`
 }
 type Query struct {
-	Str string `json:"str,omitempty"`
-	POS string `json:"pos,omitempty"`
+	Str string  `json:"str"`
+	POS *string `json:"pos"`
 }
 
 func init() {
@@ -40,7 +40,7 @@ func init() {
 			// for each element (`firm.Elems()`),
 			// validate using the validation defined for `Query` "backed" by `firm.DefaultRegistry` `(`firm.Backed()`)
 			//
-			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}})`
+			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}}).ErrOnNil("POS")`
 			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
 			//
 			// `firm.Backed()` does not recurse into `nil` pointers; a `firm.ErrInvalidValue()` is merged instead
@@ -54,9 +54,13 @@ func init() {
 		firm.NewDefinition[Query]().
 			// For the `Str` string field,
 			// validate whether the string is present--a non-empty value (`rule.Present{}`)
+			//
+			// For the `POS` *string field,
+			// error when the pointer is nil (`ErrOnNil()`)
 			Validates(firm.RuleMap{
 				"Str": {rule.Present{}},
-			}))
+			}).
+			ErrOnNil("POS"))
 }
 
 func readConfig(body []byte) (Config, error) {

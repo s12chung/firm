@@ -43,13 +43,9 @@ func (r *Registry) RegisterType(definition *Definition) error {
 
 func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 	typ := definition.Type()
-	selfRules := definition.SelfRules()
-	if len(definition.RuleMap()) > 0 {
-		fieldsV, err := FieldsAnyWithErr(definition.typ, definition.RuleMap())
-		if err != nil {
-			return nil, err
-		}
-		selfRules = append(selfRules, fieldsV)
+	selfRules, err := r.selfRules(definition)
+	if err != nil {
+		return nil, err
 	}
 	v, err := ValueAnyWithErr(typ, selfRules...)
 	if err != nil {
@@ -59,6 +55,25 @@ func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 		return nil, err
 	}
 	return &v, nil
+}
+
+// selfRules returns the Definition's self rules, with the fields validator appended to it
+func (r *Registry) selfRules(definition *Definition) ([]Rule, error) {
+	selfRules := definition.SelfRules()
+	if len(definition.ruleMap) == 0 && definition.errOnNilFields == nil {
+		return selfRules, nil
+	}
+	fieldsV, err := FieldsAnyWithErr(definition.typ, definition.RuleMap())
+	if err != nil {
+		return nil, err
+	}
+	if definition.errOnNilFields != nil {
+		fieldsV, err = fieldsV.ErrOnNilWithErr(definition.errOnNilFields...)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return append(selfRules, fieldsV), nil
 }
 
 // nilType stands-in for nil values--it is private, so it can't be registered outside of this package

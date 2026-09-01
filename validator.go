@@ -32,7 +32,7 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 	}
 
 	rm := map[string][]Rule{}
-	fieldIndexes := map[string][]int{}
+	fieldIndices := map[string][]int{}
 	for fieldName, rules := range ruleMap {
 		field, found := typ.FieldByName(fieldName)
 		if !found {
@@ -46,9 +46,9 @@ func FieldsAnyWithErr(typ reflect.Type, ruleMap RuleMap) (FieldsAnyVldr, error) 
 			return FieldsAnyVldr{}, err
 		}
 		rm[fieldName] = rules
-		fieldIndexes[fieldName] = field.Index
+		fieldIndices[fieldName] = field.Index // set here to ensure promoted fields set (promoted fields is complicated)
 	}
-	return FieldsAnyVldr{typ: typ, ruleMap: rm, fieldIndexes: fieldIndexes}, nil
+	return FieldsAnyVldr{typ: typ, ruleMap: rm, fieldIndices: fieldIndices}, nil
 }
 
 // FieldsVldr validates structs
@@ -57,12 +57,21 @@ type FieldsVldr[T any] struct{ FieldsAnyVldr }
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
 func (s FieldsVldr[T]) Validate(data T) ErrorMap { return ImplValidate(s, data) }
 
+// ErrOnNil is FieldsAnyVldr.ErrOnNil(), but typed
+func (s FieldsVldr[T]) ErrOnNil(fields ...string) FieldsVldr[T] {
+	s.FieldsAnyVldr = s.FieldsAnyVldr.ErrOnNil(fields...)
+	return s
+}
+
 // FieldsAnyVldr is a FieldsVldr without generics
 type FieldsAnyVldr struct {
 	typ     reflect.Type
 	ruleMap map[string][]Rule
-	// fieldIndexes maps the StructField Name to the Index of each field in ruleMap, cached to avoid per-validation FieldByName() lookups
-	fieldIndexes map[string][]int
+	// fieldIndices maps the StructField Name to the Index of each field in ruleMap and ErrOnNil(),
+	// cached to avoid per-validation FieldByName() lookups
+	fieldIndices map[string][]int
+	// errOnNilFields flags fields to merge ErrInvalidValue() on, when the field's value is invalid (often from a nil pointer)
+	errOnNilFields map[string]bool
 }
 
 // Type returns the Type the Validator handles
@@ -80,8 +89,44 @@ func (s FieldsAnyVldr) ValidateValue(value reflect.Value) ErrorMap {
 func (s FieldsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	MustValidValue(value)
 	for fieldName, rules := range s.ruleMap {
-		ImplValidateMergeIndirected(fieldByIndex(value, s.fieldIndexes[fieldName]), joinKeys(key, fieldName), errorMap, rules)
+		ImplValidateMergeIndirected(fieldByIndex(value, s.fieldIndices[fieldName]), joinKeys(key, fieldName), errorMap, rules, s.errOnNilFields[fieldName])
 	}
+}
+
+// ErrOnNil flags fields to merge ErrInvalidValue() on, when the field's value is invalid
+// (often from a nil pointer), instead of skipping it. Fields not in the RuleMap are nil-checked
+// with no rules. Fields must be exported; promoted fields are allowed. Panics on no fields
+// given, a field not found, or unexported in the type
+func (s FieldsAnyVldr) ErrOnNil(fields ...string) FieldsAnyVldr {
+	v, err := s.ErrOnNilWithErr(fields...)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// ErrOnNilWithErr is ErrOnNil(), but returns an error instead of panicking
+func (s FieldsAnyVldr) ErrOnNilWithErr(fields ...string) (FieldsAnyVldr, error) {
+	if len(fields) == 0 {
+		return FieldsAnyVldr{}, errors.New("ErrOnNil: no fields given")
+	}
+	errOnNilFields := map[string]bool{}
+	for _, fieldName := range fields {
+		field, found := s.typ.FieldByName(fieldName)
+		if !found {
+			return FieldsAnyVldr{}, fmt.Errorf("ErrOnNil: field, %v, not found in type: %v", fieldName, s.typ.String())
+		}
+		if !field.IsExported() {
+			return FieldsAnyVldr{}, fmt.Errorf("ErrOnNil: field, %v, is unexported in type: %v", fieldName, s.typ.String())
+		}
+		if _, found := s.ruleMap[fieldName]; !found {
+			s.ruleMap[fieldName] = nil
+			s.fieldIndices[fieldName] = field.Index // set here to ensure promoted fields set (promoted fields is complicated)
+		}
+		errOnNilFields[fieldName] = true
+	}
+	s.errOnNilFields = errOnNilFields
+	return s, nil
 }
 
 // TypeCheck checks whether the type is valid for the Rule
@@ -138,10 +183,18 @@ type ElemsVldr[T []U, U any] struct{ ElemsAnyVldr }
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
 func (s ElemsVldr[T, U]) Validate(data T) ErrorMap { return ImplValidate(s, data) }
 
+// ErrOnNil is ElemsAnyVldr.ErrOnNil(), but typed
+func (s ElemsVldr[T, U]) ErrOnNil() ElemsVldr[T, U] {
+	s.ElemsAnyVldr = s.ElemsAnyVldr.ErrOnNil()
+	return s
+}
+
 // ElemsAnyVldr is an ElemsVldr without generics
 type ElemsAnyVldr struct {
 	typ          reflect.Type
 	elementRules []Rule
+	// errOnNil flags to merge ErrInvalidValue(), when an element's value is invalid (often from a nil pointer)
+	errOnNil bool
 }
 
 // Type returns the Type the Validator handles
@@ -157,9 +210,13 @@ func (s ElemsAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return ImplV
 func (s ElemsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	MustValidValue(value)
 	for i := range value.Len() {
-		ImplValidateMergeIndirected(value.Index(i), joinKeys(key, sliceErrorKey(i)), errorMap, s.elementRules)
+		ImplValidateMergeIndirected(value.Index(i), joinKeys(key, sliceErrorKey(i)), errorMap, s.elementRules, s.errOnNil)
 	}
 }
+
+// ErrOnNil flags to merge ErrInvalidValue(), when an element's value is invalid
+// (often from a nil pointer), instead of skipping it
+func (s ElemsAnyVldr) ErrOnNil() ElemsAnyVldr { s.errOnNil = true; return s }
 
 // TypeCheck checks whether the type is valid for the Rule
 func (s ElemsAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
@@ -306,11 +363,14 @@ func MustValidValue(value reflect.Value) {
 	}
 }
 
-// ImplValidateMergeIndirected calls ImplValidateMerge() after indirecting and checking if it is valid
-func ImplValidateMergeIndirected(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
+// ImplValidateMergeIndirected calls ImplValidateMerge() after indirecting the value. On an invalid
+// value (often from a nil pointer), ErrInvalidValue() is merged when errOnNil is set; skipped otherwise
+func ImplValidateMergeIndirected(value reflect.Value, key string, errorMap ErrorMap, rules []Rule, errOnNil bool) {
 	value = indirect(value)
 	if !value.IsValid() {
-		mergeInvalidValue(key, errorMap)
+		if errOnNil {
+			mergeInvalidValue(key, errorMap)
+		}
 		return
 	}
 	ImplValidateMerge(value, key, errorMap, rules)

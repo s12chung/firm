@@ -47,8 +47,22 @@ func TestDefinition_Validates(t *testing.T) {
 	require.EqualError(err, "RegisterType() with type firm.Child: Fields: field, DoesNotExist, not found in type: firm.Child")
 	err = registry.RegisterType(NewDefinition[Child]().Validates(RuleMap{"private": {}}))
 	require.EqualError(err, "RegisterType() with type firm.Child: Fields: field, private, is unexported in type: firm.Child")
-	err = registry.RegisterType(NewDefinition[int]().Validates(RuleMap{"Str": {}})) // non-struct
-	require.EqualError(err, "RegisterType() with type int: Fields: type, int, is not a Struct")
+
+	// non-structs have no fields
+	require.Panics(func() { NewDefinition[int]().Validates(RuleMap{"Str": {}}) })
+}
+
+func TestDefinition_ErrOnNil(t *testing.T) {
+	require := require.New(t)
+
+	require.Equal([]string{"Validates"}, NewDefinition[Child]().ErrOnNil("Validates").errOnNilFields)
+
+	// no fields error out
+	require.Panics(func() { NewDefinition[Child]().ErrOnNil() })
+	// an empty call still counts as called
+	require.Panics(func() { NewDefinition[Child]().ErrOnNil("Validates").ErrOnNil() })
+	// non-structs have no fields
+	require.Panics(func() { NewDefinition[int]().ErrOnNil() })
 }
 
 func TestDefinition_GettersReturnCopies(t *testing.T) {

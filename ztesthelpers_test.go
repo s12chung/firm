@@ -62,6 +62,23 @@ func (p presentRule) ValidateValue(value reflect.Value) ErrorMap {
 }
 func (p presentRule) TypeCheck(_ reflect.Type) *RuleTypeError { return nil }
 
+func errOnNilValidator(validator Validator) Validator {
+	switch validator := validator.(type) {
+	case ElemsVldr[[]*sliceValidatorElement, *sliceValidatorElement]:
+		return validator.ErrOnNil()
+	case ElemsAnyVldr:
+		return validator.ErrOnNil()
+	case KeysVldr[map[*int]sliceValidatorElement, *int, sliceValidatorElement]:
+		return validator.ErrOnNil()
+	case ValuesVldr[map[string]*sliceValidatorElement, string, *sliceValidatorElement]:
+		return validator.ErrOnNil()
+	case ValuesAnyVldr:
+		return validator.ErrOnNil()
+	default:
+		return nil
+	}
+}
+
 //nolint:unparam // leave it for tests
 func presentRuleError(errorKey ErrorKey) *TemplateError {
 	return &TemplateError{ErrorKey: errorKey, Template: presentRuleKey + " template"}

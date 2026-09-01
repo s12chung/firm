@@ -84,7 +84,7 @@ func TestRegistry_RegisterType(t *testing.T) {
 				FieldsAnyVldr{typ: registryParentType, ruleMap: map[string][]Rule{
 					// stamped at registration with the field's type
 					"Child": {RegistryBacker{Registry: registry, typ: registryChildType}},
-				}, fieldIndexes: map[string][]int{"Child": {1}}},
+				}, fieldIndices: map[string][]int{"Child": {1}}},
 			}},
 	}
 	require.Equal(typeToValidator, registry.typeToValidator)
@@ -291,7 +291,6 @@ func TestMultiPtr_ValidateAll(t *testing.T) {
 		name        string
 		data        any
 		keySuffixes []string
-		invalidKeys []string
 	}{
 		{name: "Child___valid", data: &ppGood},
 		{name: "Child___empty", data: &ppEmpty,
@@ -299,22 +298,64 @@ func TestMultiPtr_ValidateAll(t *testing.T) {
 
 		{name: "Parent___valid", data: multiPtrParent{Ptr: &ppGood, Ptrs: &[]**Child{ppGood}}},
 		{name: "Parent___empty", data: multiPtrParent{},
-			invalidKeys: []string{"Ptr", "Ptrs"}},
+			// the nil Ptr and Ptrs pointers are skipped and never reach the rules
+			keySuffixes: nil},
 		{name: "Parent___Ptr_empty", data: multiPtrParent{Ptr: &ppEmpty, Ptrs: &[]**Child{ppGood}},
 			keySuffixes: []string{"Ptr", "Ptr.Validates"}},
 		{name: "Parent__Ptr_nil", data: multiPtrParent{Ptr: ppNil, Ptrs: &[]**Child{ppGood}},
-			// the nil Child behind the pointers surfaces an Invalid error
-			invalidKeys: []string{"Ptr"}},
+			// the nil Child behind the pointers is skipped and never reaches the rules
+			keySuffixes: nil},
 		{name: "Parent___Ptrs_mixed", data: multiPtrParent{Ptr: &ppGood, Ptrs: &[]**Child{nil, ppEmpty}},
-			// the nil element surfaces an Invalid error, while the empty child surfaces errors
-			keySuffixes: []string{"Ptrs.[1].Validates"},
-			invalidKeys: []string{"Ptrs.[0]"}},
+			// the nil element is skipped, while the empty child surfaces errors
+			keySuffixes: []string{"Ptrs.[1].Validates"}},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			testValidateAllKeys(t, registry, tc.data, joinAll(tc.keySuffixes, presentRuleKey), joinAll(tc.invalidKeys, invalidKey))
+			testValidateAllKeys(t, registry, tc.data, joinAll(tc.keySuffixes, presentRuleKey), nil)
 		})
 	}
+}
+
+type registryErrOnNil struct {
+	Str string
+	Pt  *registryChild
+}
+
+func TestRegistry_ErrOnNil(t *testing.T) {
+	require := require.New(t)
+
+	expected := ErrorMap{}
+	ErrInvalidValue().MergeInto("firm.registryErrOnNil.Pt", expected)
+
+	// ErrOnNil() before Validates()--ordering does not matter
+	registry := &Registry{}
+	require.NoError(registry.RegisterType(NewDefinition[registryErrOnNil]().ErrOnNil("Pt").Validates(RuleMap{
+		"Str": {presentRule{}},
+		"Pt":  {},
+	})))
+	require.Equal(expected, registry.ValidateAny(registryErrOnNil{Str: "ok"}))
+	require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
+
+	// unknown or unexported fields error at RegisterType()
+	require.EqualError((&Registry{}).RegisterType(NewDefinition[registryErrOnNil]().Validates(RuleMap{
+		"Str": {presentRule{}},
+	}).ErrOnNil("Nope")), "RegisterType() with type firm.registryErrOnNil: ErrOnNil: field, Nope, not found in type: firm.registryErrOnNil")
+	require.EqualError((&Registry{}).RegisterType(NewDefinition[Child]().ErrOnNil("private")),
+		"RegisterType() with type firm.Child: ErrOnNil: field, private, is unexported in type: firm.Child")
+
+	// without a RuleMap, the ErrOnNil fields are added with no rules
+	registry = &Registry{}
+	require.NoError(registry.RegisterType(NewDefinition[registryErrOnNil]().ErrOnNil("Pt")))
+	require.Equal(expected, registry.ValidateAny(registryErrOnNil{Str: "not_ok"}))
+	require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
+
+	// ErrOnNil fields missing from the RuleMap are added with no rules
+	registry = &Registry{}
+	require.NoError(registry.RegisterType(NewDefinition[registryErrOnNil]().Validates(RuleMap{
+		"Str": {presentRule{}},
+	}).ErrOnNil("Pt")))
+	require.Equal(expected, registry.ValidateAny(registryErrOnNil{Str: "not_ok"}))
+	require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
 }
 
 func TestRegistryBacker(t *testing.T) {
