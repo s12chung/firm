@@ -43,25 +43,25 @@ func (r *Registry) RegisterType(definition *Definition) error {
 
 func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 	typ := definition.Type()
-	selfRules, err := r.selfRules(definition)
+	mergedRules, err := r.mergedRules(definition)
 	if err != nil {
 		return nil, err
 	}
-	v, err := ValueAnyWithErr(typ, selfRules...)
+	v, err := ValueAnyWithErr(typ, mergedRules...)
 	if err != nil {
 		return nil, err
 	}
 	if definition.errOnNilSelf {
 		v = v.ErrOnNilSelf()
 	}
-	if err := checkRecursion(r, typ, v.Rules()); err != nil {
+	if err := checkRecursion(r, typ, v.rules); err != nil {
 		return nil, err
 	}
 	return &v, nil
 }
 
-// selfRules returns the Definition's self rules, with the fields validator appended to it
-func (r *Registry) selfRules(definition *Definition) ([]Rule, error) {
+// mergedRules returns the Definition's self rules, with the fields validator appended to it
+func (r *Registry) mergedRules(definition *Definition) ([]Rule, error) {
 	selfRules := definition.SelfRules()
 	if len(definition.ruleMap) == 0 && definition.errOnNilFields == nil {
 		return selfRules, nil

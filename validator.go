@@ -283,6 +283,7 @@ func ValueAnyWithErr(typ reflect.Type, rules ...Rule) (ValueAnyVldr, error) {
 		return ValueAnyVldr{}, errors.New("Value: type is nil")
 	}
 	typ = indirectType(typ)
+	// no errContext--to hide the ValueAnyVldr wrapper to cleanly show the Rule's validation error
 	rules, err := TypeCheckAndBack(typ, rules, "")
 	if err != nil {
 		return ValueAnyVldr{}, err
