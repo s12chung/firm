@@ -7,6 +7,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -43,7 +44,7 @@ func init() {
 			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}}).ErrOnNil("POS")`
 			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
 			//
-			// `firm.Backed()` does not recurse into `nil` pointers; a `firm.ErrInvalidValue()` is merged instead
+			// `firm.Backed()` skips `nil` pointers; with `ErrOnNil()`, a `firm.ErrInvalidValue()` is merged instead
 			Validates(firm.RuleMap{
 				"Queries": {firm.Elems[[]Query](firm.Backed())},
 			}),
@@ -77,6 +78,23 @@ func readConfig(body []byte) (Config, error) {
 	return config, nil
 }
 
+// Templates make internationalizing a matter of swapping the template string
+var translations = map[string]string{
+	"is not present": "no es presento",
+	"is not valid":   "no es valido",
+}
+
+func i18nErrorMap(errMap firm.ErrorMap) firm.ErrorMap {
+	i18nMap := firm.ErrorMap{}
+	for k, v := range errMap {
+		if translated, ok := translations[v.Template]; ok {
+			v.Template = translated
+		}
+		i18nMap[k] = v
+	}
+	return i18nMap
+}
+
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Fprintf(os.Stderr, "usage: %s '<json>'\n", os.Args[0])
@@ -84,6 +102,10 @@ func main() {
 	}
 	if _, err := readConfig([]byte(os.Args[1])); err != nil {
 		fmt.Println(err.Error())
+		var errMap firm.ErrorMap
+		if errors.As(err, &errMap) {
+			fmt.Println(i18nErrorMap(errMap).Error())
+		}
 		os.Exit(1)
 	}
 	fmt.Println("valid")
