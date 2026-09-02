@@ -274,6 +274,9 @@ func (s KeyValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMa
 	}
 }
 
+// ErrOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
+func (s KeyValuesAnyVldr) ErrOnNilSelf() KeyValuesAnyVldr { s.errOnNilSelf = true; return s }
+
 // TypeCheck checks whether the type is valid for the Rule
 func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 	return TypeCheck("KeyValuesAnyVldr", typ, s.typ, "Map")
@@ -281,9 +284,6 @@ func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 
 // KeyValueRules returns a copy of the rules for each key-value pair in the Map
 func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return slices.Clone(s.keyValueRules) }
-
-// ErrOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
-func (s KeyValuesAnyVldr) ErrOnNilSelf() KeyValuesAnyVldr { s.errOnNilSelf = true; return s }
 
 // AllRules returns all rules of the validator, the rules of each key-value pair
 func (s KeyValuesAnyVldr) AllRules() []Rule { return s.KeyValueRules() }

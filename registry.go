@@ -153,6 +153,9 @@ type RegistryBacker struct {
 	typ      reflect.Type
 }
 
+// Type returns the Type the RegistryBacker handles, nil when not stamped
+func (b RegistryBacker) Type() reflect.Type { return b.typ }
+
 // ValidateAny validates the data
 func (b RegistryBacker) ValidateAny(data any) ErrorMap {
 	if b.typ == nil {
@@ -176,7 +179,12 @@ func (b RegistryBacker) ValidateMerge(value reflect.Value, key string, errorMap 
 }
 
 // TypeCheck checks whether the type is valid for the Rule
-func (b RegistryBacker) TypeCheck(typ reflect.Type) *RuleTypeError { return b.Registry.TypeCheck(typ) }
+func (b RegistryBacker) TypeCheck(typ reflect.Type) *RuleTypeError {
+	if b.typ == nil {
+		return b.Registry.TypeCheck(typ)
+	}
+	return TypeCheck("RegistryBacker", typ, b.typ, "")
+}
 
 // RuleLister is traversed by checkRecursion--implement AllRules() on a custom Validator to join the cycle check
 type RuleLister interface{ AllRules() []Rule }

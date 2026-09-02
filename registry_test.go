@@ -390,6 +390,16 @@ func TestRegistryBacker(t *testing.T) {
 	require.Equal(ErrorMap{"TypeCheck": NewRuleTypeError(
 		"ValueAnyVldr", reflect.TypeFor[registryNotFoundTest](), "is not matching type "+parentType.String(),
 	).TemplateError()}, stamped.ValidateAny(registryNotFoundTest{}))
+
+	// Type() returns the stamped type, nil when unstamped
+	require.Equal(parentType, stamped.Type())
+	require.Nil(registry.Backed().Type())
+	// TypeCheck checks against the stamped type
+	require.Nil(stamped.TypeCheck(parentType))
+	require.Equal(NewRuleTypeError("RegistryBacker", reflect.TypeFor[registryNotFoundTest](),
+		"is not matching type "+parentType.String()), stamped.TypeCheck(reflect.TypeFor[registryNotFoundTest]()))
+	// unstamped backers delegate TypeCheck to the Registry
+	require.Nil(registry.Backed().TypeCheck(reflect.TypeFor[registryNotFoundTest]()))
 }
 
 // nolint:funlen // a bunch of test cases

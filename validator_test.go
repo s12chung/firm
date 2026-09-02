@@ -1179,6 +1179,12 @@ func TestFieldsVldr_ErrOnNil(t *testing.T) {
 		expected.Merge("firm.errOnNilStruct.Pt", ErrNilPointer())
 		require.Equal(t, expected, validator.ErrOnNil("Pt").Validate(nilPt))
 		require.Nil(t, validator.ErrOnNil("Pt").Validate(errOnNilStruct{Str: "ok", Pt: &Child{}}))
+		require.Len(t, validator.RuleMap(), 1) // ErrOnNil() does not leak the added field into the original
+	})
+	t.Run("called_twice_panics", func(t *testing.T) {
+		_, err := newValidator().ErrOnNil("Pt").ErrOnNilWithErr("Str")
+		require.EqualError(t, err, "ErrOnNil: called twice in type: firm.errOnNilStruct")
+		require.Panics(t, func() { newValidator().ErrOnNil("Pt").ErrOnNil("Str") })
 	})
 	t.Run("setter_returns_a_copy", func(t *testing.T) {
 		validator := newValidator()

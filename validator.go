@@ -3,6 +3,7 @@ package firm
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 )
@@ -106,7 +107,7 @@ func (s FieldsAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap E
 // ErrOnNil flags fields to merge ErrNilPointer() on, when the field's value is a nil pointer, instead of skipping it.
 // Fields not in the RuleMap are nil-checked with no rules.
 // Fields must be exported; promoted fields are allowed. Panics on no fields
-// given, a field not found, or unexported in the type
+// given, a field not found, unexported in the type, or called twice
 func (s FieldsAnyVldr) ErrOnNil(fields ...string) FieldsAnyVldr {
 	v, err := s.ErrOnNilWithErr(fields...)
 	if err != nil {
@@ -117,9 +118,14 @@ func (s FieldsAnyVldr) ErrOnNil(fields ...string) FieldsAnyVldr {
 
 // ErrOnNilWithErr is ErrOnNil(), but returns an error instead of panicking
 func (s FieldsAnyVldr) ErrOnNilWithErr(fields ...string) (FieldsAnyVldr, error) {
+	if s.errOnNilFields != nil {
+		return FieldsAnyVldr{}, fmt.Errorf("ErrOnNil: called twice in type: %v", s.typ.String())
+	}
 	if len(fields) == 0 {
 		return FieldsAnyVldr{}, errors.New("ErrOnNil: no fields given")
 	}
+	ruleMap := maps.Clone(s.ruleMap)
+	fieldIndices := maps.Clone(s.fieldIndices)
 	errOnNilFields := map[string]bool{}
 	for _, fieldName := range fields {
 		field, found := s.typ.FieldByName(fieldName)
@@ -129,12 +135,14 @@ func (s FieldsAnyVldr) ErrOnNilWithErr(fields ...string) (FieldsAnyVldr, error) 
 		if !field.IsExported() {
 			return FieldsAnyVldr{}, fmt.Errorf("ErrOnNil: field, %v, is unexported in type: %v", fieldName, s.typ.String())
 		}
-		if _, found := s.ruleMap[fieldName]; !found {
-			s.ruleMap[fieldName] = nil
-			s.fieldIndices[fieldName] = field.Index // set here to ensure promoted fields set (promoted fields is complicated)
+		if _, found := ruleMap[fieldName]; !found {
+			ruleMap[fieldName] = nil
+			fieldIndices[fieldName] = field.Index // set here to ensure promoted fields set (promoted fields is complicated)
 		}
 		errOnNilFields[fieldName] = true
 	}
+	s.ruleMap = ruleMap
+	s.fieldIndices = fieldIndices
 	s.errOnNilFields = errOnNilFields
 	return s, nil
 }
@@ -398,17 +406,6 @@ func ImplValidateMerge(value reflect.Value, key string, errorMap ErrorMap, rules
 	}
 }
 
-const safeValuePanic = "nil pointer--safe values are expected, see the Types, Pointers, and Safe Values section in the README"
-
-// MustValidValue panics on a nil pointer--a safe values contract violation. Implementations that
-// recurse in ValidateMerge(), using the value before delegating (e.g. over fields or elements),
-// call it on entry; implementations calling ImplValidateMerge() directly don't need to
-func MustValidValue(value reflect.Value) {
-	if !value.IsValid() {
-		panic(safeValuePanic)
-	}
-}
-
 // ImplValidateMergeIndirected calls ImplValidateMerge() after indirecting the value.
 // On a nil pointer, ErrNilPointer() is merged when errOnNil is set; skipped otherwise
 func ImplValidateMergeIndirected(value reflect.Value, key string, errorMap ErrorMap, rules []Rule, errOnNil bool) {
@@ -478,6 +475,17 @@ func TypeCheckAndBack(typ reflect.Type, rules []Rule, errContext string) ([]Rule
 		}
 	}
 	return stampRegistryBackers(rules, typ), nil
+}
+
+const safeValuePanic = "nil pointer--safe values are expected, see the Types, Pointers, and Safe Values section in the README"
+
+// MustValidValue panics on a nil pointer--a safe values contract violation. Implementations that
+// recurse in ValidateMerge(), using the value before delegating (e.g. over fields or elements),
+// call it on entry; implementations calling ImplValidateMerge() directly don't need to
+func MustValidValue(value reflect.Value) {
+	if !value.IsValid() {
+		panic(safeValuePanic)
+	}
 }
 
 // stampRegistryBackers returns rules with each RegistryBacker set to typ
