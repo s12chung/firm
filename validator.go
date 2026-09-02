@@ -375,19 +375,6 @@ func mustNewValidator[T any](f func() (T, error)) T {
 func ErrNilPointer() ErrorMap                       { return ErrorMap{"Nil": TemplateError{Template: "is nil"}} }
 func mergeNilPointer(key string, errorMap ErrorMap) { errorMap.Merge(key, ErrNilPointer()) }
 
-// ImplValidateAny validates the data with the validator, the implementation of Validator.ValidateAny().
-// Nil pointers are skipped, unless errOnNilSelf is set--then ErrNilPointer() is returned
-func ImplValidateAny(validator Validator, errOnNilSelf bool, data any) ErrorMap {
-	value := reflect.ValueOf(data)
-	if !value.IsValid() {
-		if errOnNilSelf {
-			return ErrNilPointer()
-		}
-		return nil
-	}
-	return validateIndirected(validator, errOnNilSelf, value)
-}
-
 // ImplValidateValue validates the data value with the validator (assumes TypeCheck is called),
 // the implementation of Rule.ValidateValue(). Panics on a nil pointer--safe values are expected
 func ImplValidateValue(validator Validator, value reflect.Value) ErrorMap {
@@ -419,10 +406,23 @@ func ImplValidateMergeIndirected(value reflect.Value, key string, errorMap Error
 	ImplValidateMerge(value, key, errorMap, rules)
 }
 
+// ImplValidateAny validates the data with the validator, the implementation of Validator.ValidateAny().
+// Nil pointers are skipped, unless errOnNilSelf is set--then ErrNilPointer() is returned
+func ImplValidateAny(validator Validator, errOnNilSelf bool, data any) ErrorMap {
+	return validateIndirected(validator, errOnNilSelf, true, data)
+}
+
 // ImplValidate validates the data with the validator, the implementation of ValidatorTyped.Validate()--
 // no type checking is done on runtime. Nil pointers are skipped,
 // unless errOnNilSelf is set--then ErrNilPointer() is returned
 func ImplValidate(validator Validator, errOnNilSelf bool, data any) ErrorMap {
+	return validateIndirected(validator, errOnNilSelf, false, data)
+}
+
+// validateIndirected is the shared implementation of ImplValidateAny()/ImplValidate(): it indirects and optionally
+// TypeChecks the validator on the value, then merges with a key of the type's name.
+// Nil pointers are skipped, unless errOnNilSelf is set--then ErrNilPointer() is returned
+func validateIndirected(validator Validator, errOnNilSelf, typeCheck bool, data any) ErrorMap {
 	// Users often don't have control over whether any is a pointer, so we're generous via indirect
 	value := indirect(reflect.ValueOf(data))
 	if !value.IsValid() {
@@ -431,31 +431,15 @@ func ImplValidate(validator Validator, errOnNilSelf bool, data any) ErrorMap {
 		}
 		return nil
 	}
-	errorMap := ErrorMap{}
-	validator.ValidateMerge(value, value.Type().String(), errorMap)
-	return errorMap.ToNil()
-}
-
-// validateIndirected indirects and TypeChecks the validator on the value, then merges with a key of
-// the type's name. Used by validators that pick the validator by the value's type, e.g. Registry.ValidateAny().
-// Nil pointers are skipped, unless errOnNilSelf is set--then ErrNilPointer() is returned
-func validateIndirected(validator Validator, errOnNilSelf bool, value reflect.Value) ErrorMap {
-	// Users often don't have control over whether any is a pointer, so we're generous via indirect
-	value = indirect(value)
-	if !value.IsValid() {
-		if errOnNilSelf {
-			return ErrNilPointer()
+	if typeCheck {
+		if err := validator.TypeCheck(value.Type()); err != nil {
+			return ErrorMap{"TypeCheck": err.TemplateError()}
 		}
-		return nil
-	}
-	typ := value.Type()
-	if err := validator.TypeCheck(typ); err != nil {
-		return ErrorMap{"TypeCheck": err.TemplateError()}
 	}
 
 	// nilType stand-ins have no user-facing type, so they are not named in the key
-	key := typ.String()
-	if typ == nilValueType {
+	key := value.Type().String()
+	if value.Type() == nilValueType {
 		key = ""
 	}
 	errorMap := ErrorMap{}
