@@ -331,6 +331,7 @@ type registryErrOnNil struct {
 	Pt  *registryChild
 }
 
+// nolint:funlen // a bunch of test cases
 func TestRegistry_ErrOnNil(t *testing.T) {
 	expected := ErrorMap{}
 	expected.Merge("firm.registryErrOnNil.Pt", ErrNilPointer())
@@ -374,15 +375,30 @@ func TestRegistry_ErrOnNil(t *testing.T) {
 			require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
 		})
 	}
-	t.Run("unknown_field", func(t *testing.T) {
-		require.EqualError(t, (&Registry{}).RegisterType(NewDefinition[registryErrOnNil]().Validates(RuleMap{
-			"Str": {presentRule{}},
-		}).ErrOnNil("Nope")), "RegisterType() with type firm.registryErrOnNil: ErrOnNil: field, Nope, not found in type: firm.registryErrOnNil")
-	})
-	t.Run("unexported_field", func(t *testing.T) {
-		require.EqualError(t, (&Registry{}).RegisterType(NewDefinition[Child]().ErrOnNil("private")),
-			"RegisterType() with type firm.Child: ErrOnNil: field, private, is unexported in type: firm.Child")
-	})
+	// unknown or unexported fields error at RegisterType()
+	errTcs := []struct {
+		name       string
+		definition *Definition
+		err        string
+	}{
+		{
+			name: "unknown_field",
+			definition: NewDefinition[registryErrOnNil]().Validates(RuleMap{
+				"Str": {presentRule{}},
+			}).ErrOnNil("Nope"),
+			err: "RegisterType() with type firm.registryErrOnNil: ErrOnNil: field, Nope, not found in type: firm.registryErrOnNil",
+		},
+		{
+			name:       "unexported_field",
+			definition: NewDefinition[Child]().ErrOnNil("private"),
+			err:        "RegisterType() with type firm.Child: ErrOnNil: field, private, is unexported in type: firm.Child",
+		},
+	}
+	for _, tc := range errTcs {
+		t.Run(tc.name, func(t *testing.T) {
+			require.EqualError(t, (&Registry{}).RegisterType(tc.definition), tc.err)
+		})
+	}
 }
 
 func TestRegistryBacker(t *testing.T) {
@@ -416,29 +432,83 @@ func TestRegistryBacker(t *testing.T) {
 		})
 	}
 
-	backer := registry.Backed()
-	t.Run("unstamped", func(t *testing.T) {
-		require.Equal(t, notFoundError(registryNotFoundTest{}), backer.ValidateAny(registryNotFoundTest{}))
-		require.Equal(t, notFoundError(nilType{}), backer.ValidateAny(nil))
+	notFoundTcs := []struct {
+		name   string
+		backer RegistryBacker
 
-		// Type() and TypeCheck()
-		require.Nil(t, backer.Type())
-		require.Nil(t, backer.TypeCheck(reflect.TypeFor[registryNotFoundTest]()))
-	})
+		// ValidateAny() on an unregistered type and on nil
+		validateNotFound ErrorMap
+		validateNil      ErrorMap
+	}{
+		{
+			name:             "unstamped_not_found",
+			backer:           registry.Backed(),
+			validateNotFound: notFoundError(registryNotFoundTest{}),
+			validateNil:      notFoundError(nilType{}),
+		},
+		{
+			// registryNotFoundTest is unregistered, so the stamped type routes, not the data's own type
+			name:   "stamped_not_found",
+			backer: RegistryBacker{Registry: registry, typ: parentType},
+			validateNotFound: ErrorMap{"TypeCheck": NewRuleTypeError(
+				"ValueAnyVldr", reflect.TypeFor[registryNotFoundTest](), "is not matching type "+parentType.String(),
+			).TemplateError()},
+		},
+	}
+	for _, tc := range notFoundTcs {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
 
-	// registryNotFoundTest is unregistered, so the stamped type routes, not the data's own type
-	t.Run("stamped", func(t *testing.T) {
-		stamped := RegistryBacker{Registry: registry, typ: parentType}
-		require.Equal(t, ErrorMap{"TypeCheck": NewRuleTypeError(
-			"ValueAnyVldr", reflect.TypeFor[registryNotFoundTest](), "is not matching type "+parentType.String(),
-		).TemplateError()}, stamped.ValidateAny(registryNotFoundTest{}))
+			require.Equal(tc.validateNotFound, tc.backer.ValidateAny(registryNotFoundTest{}))
+			require.Equal(tc.validateNil, tc.backer.ValidateAny(nil))
+		})
+	}
+}
 
-		// Type() and TypeCheck()
-		require.Equal(t, parentType, stamped.Type())
-		require.Nil(t, stamped.TypeCheck(parentType))
-		require.Equal(t, NewRuleTypeError("RegistryBacker", reflect.TypeFor[registryNotFoundTest](),
-			"is not matching type "+parentType.String()), stamped.TypeCheck(reflect.TypeFor[registryNotFoundTest]()))
-	})
+func TestRegistryBacker_TypeCheck(t *testing.T) {
+	registry := &Registry{}
+	require.NoError(t, registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
+
+	parentType := reflect.TypeFor[registryParent]()
+	tcs := []struct {
+		name         string
+		backer       RegistryBacker
+		expectedType reflect.Type
+		typ          reflect.Type // the type TypeCheck() checks against
+		expectedErr  *RuleTypeError
+	}{
+		{
+			name:         "unstamped",
+			backer:       registry.Backed(),
+			expectedType: nil,
+			// unstamped backers delegate TypeCheck to the Registry
+			typ: reflect.TypeFor[registryNotFoundTest](),
+		},
+		{
+			name:         "stamped",
+			backer:       RegistryBacker{Registry: registry, typ: parentType},
+			expectedType: parentType,
+			// TypeCheck checks against the stamped type
+			typ: parentType,
+		},
+		{
+			name:         "stamped_mismatch",
+			backer:       RegistryBacker{Registry: registry, typ: parentType},
+			expectedType: parentType,
+			typ:          reflect.TypeFor[registryNotFoundTest](),
+			expectedErr: NewRuleTypeError("RegistryBacker", reflect.TypeFor[registryNotFoundTest](),
+				"is not matching type "+parentType.String()),
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
+
+			// Type() returns the stamped type, nil when unstamped
+			require.Equal(tc.expectedType, tc.backer.Type())
+			require.Equal(tc.expectedErr, tc.backer.TypeCheck(tc.typ))
+		})
+	}
 }
 
 // nolint:funlen // a bunch of test cases
