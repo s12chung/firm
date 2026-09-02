@@ -17,18 +17,17 @@ func TestErrorMap_Error(t *testing.T) {
 	require.Equal("A: value field A message, B: value field B message", errorMap.Error())
 }
 
-func TestErrorMap_MergeInto(t *testing.T) {
+func TestErrorMap_Merge(t *testing.T) {
 	require := require.New(t)
 
-	src := ErrorMap{
-		"A": TemplateError{Template: "a1"},
-		"B": TemplateError{Template: "b1"},
-	}
 	dest := ErrorMap{
 		"PATH.B": TemplateError{Template: "b2"},
 		"PATH.C": TemplateError{Template: "c2"},
 	}
-	src.MergeInto("PATH", dest)
+	dest.Merge("PATH", ErrorMap{
+		"A": TemplateError{Template: "a1"},
+		"B": TemplateError{Template: "b1"},
+	})
 	require.Equal(ErrorMap{
 		"PATH.A": TemplateError{Template: "a1", ErrorKey: "PATH.A"},
 		"PATH.B": TemplateError{Template: "b1", ErrorKey: "PATH.B"},

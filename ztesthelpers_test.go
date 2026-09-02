@@ -168,7 +168,7 @@ func testValidateAllExpected(t *testing.T, skipValidate bool, validator Validato
 	require := require.New(t)
 
 	validateExpected := ErrorMap{}
-	validateValueExpected.MergeInto(typeName(reflect.ValueOf(data)), validateExpected)
+	validateExpected.Merge(typeName(reflect.ValueOf(data)), validateValueExpected)
 	validateExpected = validateExpected.ToNil()
 
 	if !skipValidate {

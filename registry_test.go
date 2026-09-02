@@ -335,7 +335,7 @@ func TestRegistry_ErrOnNil(t *testing.T) {
 	require := require.New(t)
 
 	expected := ErrorMap{}
-	ErrInvalidValue().MergeInto("firm.registryErrOnNil.Pt", expected)
+	expected.Merge("firm.registryErrOnNil.Pt", ErrInvalidValue())
 
 	// ErrOnNil() before Validates()--ordering does not matter
 	registry := &Registry{}

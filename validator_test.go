@@ -1101,7 +1101,7 @@ func TestFieldsAnyVldr_NilEmbeddedPointerField(t *testing.T) {
 
 	// ErrOnNil flags the invalid Validates field value, merging an Invalid error
 	expected := ErrorMap{}
-	ErrInvalidValue().MergeInto("Validates", expected)
+	expected.Merge("Validates", ErrInvalidValue())
 	require.Equal(expected, validator.ErrOnNil("Validates").ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
 	require.Nil(validator.ErrOnNil("Validates").ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
 }
@@ -1156,7 +1156,7 @@ func TestFieldsVldr_ErrOnNil(t *testing.T) {
 	})
 	t.Run("named_fields", func(t *testing.T) {
 		expected := ErrorMap{}
-		ErrInvalidValue().MergeInto("firm.errOnNilStruct.Pt", expected)
+		expected.Merge("firm.errOnNilStruct.Pt", ErrInvalidValue())
 		require.Equal(t, expected, newValidator().ErrOnNil("Pt").Validate(nilPt))
 	})
 	t.Run("no_fields_panics", func(t *testing.T) {
@@ -1176,7 +1176,7 @@ func TestFieldsVldr_ErrOnNil(t *testing.T) {
 		// the nil Pt is nil-checked only, while the presentRule on Pt is absent
 		validator := Fields[errOnNilStruct](RuleMap{"Str": {presentRule{}}})
 		expected := ErrorMap{}
-		ErrInvalidValue().MergeInto("firm.errOnNilStruct.Pt", expected)
+		expected.Merge("firm.errOnNilStruct.Pt", ErrInvalidValue())
 		require.Equal(t, expected, validator.ErrOnNil("Pt").Validate(nilPt))
 		require.Nil(t, validator.ErrOnNil("Pt").Validate(errOnNilStruct{Str: "ok", Pt: &Child{}}))
 	})

@@ -32,12 +32,12 @@ func (e ErrorMap) sortedKeys() []ErrorKey {
 	return keys
 }
 
-// MergeInto merges into dest, given appending path to the src keys.
-func (e ErrorMap) MergeInto(path string, dest ErrorMap) {
-	for k, v := range e {
+// Merge merges src into e, given appending path to the src keys.
+func (e ErrorMap) Merge(path string, src ErrorMap) {
+	for k, v := range src {
 		key := joinKeys(ErrorKey(path), k)
 		v.ErrorKey = key // indicate path change
-		dest[key] = v
+		e[key] = v
 	}
 }
 

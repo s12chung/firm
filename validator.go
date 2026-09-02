@@ -370,7 +370,7 @@ func mustNewValidator[T any](f func() (T, error)) T {
 
 // ErrInvalidValue returns the ErrorMap that answers unsafe values, keyed at "Invalid"
 func ErrInvalidValue() ErrorMap                       { return ErrorMap{"Invalid": TemplateError{Template: "is not valid"}} }
-func mergeInvalidValue(key string, errorMap ErrorMap) { ErrInvalidValue().MergeInto(key, errorMap) }
+func mergeInvalidValue(key string, errorMap ErrorMap) { errorMap.Merge(key, ErrInvalidValue()) }
 
 // ImplValidateAny validates the data with the validator, the implementation of Validator.ValidateAny().
 // Invalid values (often from nil pointers) are skipped, unless errOnNilSelf is set--then ErrInvalidValue() is returned
@@ -399,7 +399,7 @@ func ImplValidateValue(validator Validator, value reflect.Value) ErrorMap {
 func ImplValidateMerge(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
 	MustValidValue(value)
 	for _, rule := range rules {
-		rule.ValidateValue(value).MergeInto(key, errorMap)
+		errorMap.Merge(key, rule.ValidateValue(value))
 	}
 }
 
