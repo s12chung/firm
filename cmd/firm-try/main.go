@@ -25,43 +25,23 @@ type Query struct {
 
 func init() {
 	//
-	// Define validations (Step 1 of 2)
-	// Defined in `init()` to avoid concurrent `map` changes
+	// Define validations in `init()` to avoid concurrent `map` changes
 	//
-	// Register a type to `firm.DefaultRegistry`
-	firm.MustRegisterType(
-		// For the `firm.Definition` of the `Config` struct, which represents a `firm.FieldsAnyVldr`
-		firm.NewDefinition[Config]().
-			// On the `Config` struct "itself", NOT the `Config`'s fields,
-			// validate whether the struct is present (a non-empty value)
-			ValidatesSelf(rule.Present{}).
-			// Fields are represented by a `firm.RuleMap`.
-			//
-			// For the `Config.Queries` slice field,
-			// for each element (`firm.Elems()`),
-			// validate using the validation defined for `Query` "backed" by `firm.DefaultRegistry` `(`firm.Backed()`)
-			//
-			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}}).ErrOnNil("POS")`
-			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
-			//
-			// `firm.Backed()` skips `nil` pointers; with `ErrOnNil()`, a `firm.ErrNilPointer()` is merged instead
-			Validates(firm.RuleMap{
-				"Queries": {firm.Elems[[]Query](firm.Backed())},
-			}),
+	firm.MustRegisterType(firm.NewDefinition[Config]().
+		// On the `Config` struct "itself", NOT the `Config`'s fields
+		ValidatesSelf(rule.Present{}).
+		Validates(firm.RuleMap{
+			"Queries": {firm.Elems[[]Query](
+				// `firm.Backed()` - validate using registration for `Query` below
+				// Basically, explicit recursion
+				firm.Backed(),
+			)},
+		}),
 	)
-	// Register a type to `firm.DefaultRegistry`
-	firm.MustRegisterType(
-		// For the `firm.Definition` of the `Query` struct, which represents a `firm.FieldsAnyVldr`
-		firm.NewDefinition[Query]().
-			// For the `Str` string field,
-			// validate whether the string is present--a non-empty value (`rule.Present{}`)
-			//
-			// For the `POS` *string field,
-			// error when the pointer is nil (`ErrOnNil()`)
-			Validates(firm.RuleMap{
-				"Str": {rule.Present{}},
-			}).
-			ErrOnNil("POS"))
+	// For the `Query` struct
+	firm.MustRegisterType(firm.NewDefinition[Query]().Validates(firm.RuleMap{
+		"Str": {rule.Present{}},
+	}).ErrOnNil("POS")) // nil is skipped otherwise
 }
 
 func readConfig(body []byte) (Config, error) {
@@ -70,7 +50,7 @@ func readConfig(body []byte) (Config, error) {
 		return Config{}, err
 	}
 	//
-	// Run validation (Step 2 of 2)
+	// Run validation
 	//
 	if errMap := firm.ValidateAny(&config); errMap != nil {
 		return Config{}, errMap
