@@ -113,7 +113,7 @@ func TestCustomValidatorPkg(t *testing.T) {
 	require.Nil(v.Validate(1))
 	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.Validate(-1))
 
-	// ImplValidateAny - unsafe values are indirected; invalid values are skipped by default
+	// ImplValidateAny - unsafe values are indirected; nil pointers are skipped by default
 	require.Nil(v.ValidateAny(1))
 	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(-1))
 

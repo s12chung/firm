@@ -31,12 +31,11 @@ type Definition struct {
 	selfRulesSet bool
 	ruleMapSet   bool
 
-	// errOnNilFields flags fields to merge ErrInvalidValue() on, when the field's value is
-	// invalid (often from a nil pointer); nil is unset
+	// errOnNilFields flags fields to merge ErrNilPointer() on, when the field's value is
+	// a nil pointer; nil is unset
 	errOnNilFields []string
 
-	// errOnNilSelf flags to merge ErrInvalidValue(), when the value itself is invalid
-	// (often from a nil pointer) in ValidateAny()/Validate()
+	// errOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer in ValidateAny()/Validate()
 	errOnNilSelf bool
 }
 
@@ -63,8 +62,8 @@ func (s *Definition) Validates(ruleMap RuleMap) *Definition {
 	return s
 }
 
-// ErrOnNil flags fields to merge firm.ErrInvalidValue() on, when the field's value is
-// invalid (often from a nil pointer), instead of skipping it. Fields must be exported.
+// ErrOnNil flags fields to merge firm.ErrNilPointer() on,
+// when the field's value is a nil pointer, instead of skipping it. Fields must be exported.
 // Panics on a non-struct type, no fields given, or called twice. Field checks happen at RegisterType()
 func (s *Definition) ErrOnNil(fields ...string) *Definition {
 	if s.typ.Kind() != reflect.Struct {
@@ -80,8 +79,8 @@ func (s *Definition) ErrOnNil(fields ...string) *Definition {
 	return s
 }
 
-// ErrOnNilSelf flags to merge firm.ErrInvalidValue(), when the value itself is nil
-// (often from a nil pointer) in firm.Registry.ValidateAny()/Validate(), instead of skipping it.
+// ErrOnNilSelf flags to merge firm.ErrNilPointer(),
+// when the value itself is a nil pointer in firm.Registry.ValidateAny()/Validate(), instead of skipping it.
 // Panics when called twice
 func (s *Definition) ErrOnNilSelf() *Definition {
 	if s.errOnNilSelf {

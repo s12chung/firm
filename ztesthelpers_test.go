@@ -11,7 +11,7 @@ import (
 
 const nilName = "nil"
 const presentRuleKey = "presentRule"
-const invalidKey = "Invalid"
+const nilKey = "Nil"
 
 func typeName(value reflect.Value) string {
 	if !value.IsValid() {
@@ -99,7 +99,7 @@ func testErrOnNilSelf(t *testing.T, validator any) {
 	require.True(method.IsValid())
 	errOnNilSelfValidator, ok := reflect.TypeAssert[Validator](method.Call(nil)[0])
 	require.True(ok)
-	require.Equal(ErrInvalidValue(), errOnNilSelfValidator.ValidateAny(nil))
+	require.Equal(ErrNilPointer(), errOnNilSelfValidator.ValidateAny(nil))
 
 	// the setter returns a copy--the unset validator still skips
 	require.Nil(v.ValidateAny(nil))
@@ -110,9 +110,9 @@ func presentRuleError(errorKey ErrorKey) *TemplateError {
 	return &TemplateError{ErrorKey: errorKey, Template: presentRuleKey + " template"}
 }
 
-// invalidError returns the Invalid error the validators use for invalid values
-func invalidError(errorKey ErrorKey) *TemplateError {
-	templateError := ErrInvalidValue()["Invalid"]
+// nilPointerError returns the Nil error the validators use for nil pointers
+func nilPointerError(errorKey ErrorKey) *TemplateError {
+	templateError := ErrNilPointer()[nilKey]
 	templateError.ErrorKey = errorKey
 	return &templateError
 }
@@ -135,10 +135,10 @@ func testValidateAll(t *testing.T, validator Validator, data any, err *TemplateE
 	testValidateAllExpected(t, false, validator, data, suffixErrorMap(err, keySuffixes))
 }
 
-// testValidateAllKeys asserts with presentRule errors at keySuffixes and Invalid errors at invalidKeySuffixes
-func testValidateAllKeys(t *testing.T, validator Validator, data any, keySuffixes, invalidKeySuffixes []string) {
+// testValidateAllKeys asserts with presentRule errors at keySuffixes and Nil errors at nilKeySuffixes
+func testValidateAllKeys(t *testing.T, validator Validator, data any, keySuffixes, nilKeySuffixes []string) {
 	expected := suffixErrorMap(presentRuleError(""), keySuffixes)
-	for key, err := range suffixErrorMap(invalidError(""), invalidKeySuffixes) {
+	for key, err := range suffixErrorMap(nilPointerError(""), nilKeySuffixes) {
 		if expected == nil {
 			expected = ErrorMap{}
 		}

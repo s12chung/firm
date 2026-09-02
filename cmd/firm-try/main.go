@@ -44,7 +44,7 @@ func init() {
 			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}}).ErrOnNil("POS")`
 			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
 			//
-			// `firm.Backed()` skips `nil` pointers; with `ErrOnNil()`, a `firm.ErrInvalidValue()` is merged instead
+			// `firm.Backed()` skips `nil` pointers; with `ErrOnNil()`, a `firm.ErrNilPointer()` is merged instead
 			Validates(firm.RuleMap{
 				"Queries": {firm.Elems[[]Query](firm.Backed())},
 			}),
@@ -81,7 +81,7 @@ func readConfig(body []byte) (Config, error) {
 // Templates make internationalizing a matter of swapping the template string
 var translations = map[string]string{
 	"is not present": "no es presento",
-	"is not valid":   "no es valido",
+	"is nil":         "es nil",
 }
 
 func i18nErrorMap(errMap firm.ErrorMap) firm.ErrorMap {

@@ -58,9 +58,9 @@ func (s KeysVldr[T, K, V]) ErrOnNilSelf() KeysVldr[T, K, V] {
 type KeysAnyVldr struct {
 	typ      reflect.Type
 	keyRules []Rule
-	// errOnNil flags to merge ErrInvalidValue(), when a key's value is invalid (often from a nil pointer)
+	// errOnNil flags to merge ErrNilPointer(), when a key's value is a nil pointer
 	errOnNil bool
-	// errOnNilSelf flags to merge ErrInvalidValue(), when the value itself is invalid (often from a nil pointer)
+	// errOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
 	errOnNilSelf bool
 }
 
@@ -82,12 +82,10 @@ func (s KeysAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap Err
 	}
 }
 
-// ErrOnNil flags to merge ErrInvalidValue(), when a key's value is invalid
-// (often from a nil pointer), instead of skipping it
+// ErrOnNil flags to merge ErrNilPointer(), when a key's value is a nil pointer, instead of skipping it
 func (s KeysAnyVldr) ErrOnNil() KeysAnyVldr { s.errOnNil = true; return s }
 
-// ErrOnNilSelf flags to merge ErrInvalidValue(), when the value itself is nil
-// (often from a nil pointer), instead of skipping it
+// ErrOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
 func (s KeysAnyVldr) ErrOnNilSelf() KeysAnyVldr { s.errOnNilSelf = true; return s }
 
 // TypeCheck checks whether the type is valid for the Rule
@@ -154,9 +152,9 @@ func (s ValuesVldr[T, K, V]) ErrOnNilSelf() ValuesVldr[T, K, V] {
 type ValuesAnyVldr struct {
 	typ        reflect.Type
 	valueRules []Rule
-	// errOnNil flags to merge ErrInvalidValue(), when a value's value is invalid (often from a nil pointer)
+	// errOnNil flags to merge ErrNilPointer(), when a value's value is a nil pointer
 	errOnNil bool
-	// errOnNilSelf flags to merge ErrInvalidValue(), when the value itself is invalid (often from a nil pointer)
+	// errOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
 	errOnNilSelf bool
 }
 
@@ -182,12 +180,10 @@ func (s ValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap E
 	}
 }
 
-// ErrOnNil flags to merge ErrInvalidValue(), when a value's value is invalid
-// (often from a nil pointer), instead of skipping it
+// ErrOnNil flags to merge ErrNilPointer(), when a value's value is a nil pointer, instead of skipping it
 func (s ValuesAnyVldr) ErrOnNil() ValuesAnyVldr { s.errOnNil = true; return s }
 
-// ErrOnNilSelf flags to merge ErrInvalidValue(), when the value itself is nil
-// (often from a nil pointer), instead of skipping it
+// ErrOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
 func (s ValuesAnyVldr) ErrOnNilSelf() ValuesAnyVldr { s.errOnNilSelf = true; return s }
 
 // TypeCheck checks whether the type is valid for the Rule
@@ -250,7 +246,7 @@ func (s KeyValuesVldr[T, K, V]) ErrOnNilSelf() KeyValuesVldr[T, K, V] {
 type KeyValuesAnyVldr struct {
 	typ           reflect.Type
 	keyValueRules []Rule
-	// errOnNilSelf flags to merge ErrInvalidValue(), when the value itself is invalid (often from a nil pointer)
+	// errOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
 	errOnNilSelf bool
 }
 
@@ -286,8 +282,7 @@ func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
 // KeyValueRules returns a copy of the rules for each key-value pair in the Map
 func (s KeyValuesAnyVldr) KeyValueRules() []Rule { return slices.Clone(s.keyValueRules) }
 
-// ErrOnNilSelf flags to merge ErrInvalidValue(), when the value itself is nil
-// (often from a nil pointer), instead of skipping it
+// ErrOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
 func (s KeyValuesAnyVldr) ErrOnNilSelf() KeyValuesAnyVldr { s.errOnNilSelf = true; return s }
 
 // AllRules returns all rules of the validator, the rules of each key-value pair

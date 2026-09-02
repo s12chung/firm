@@ -46,7 +46,7 @@ func init() {
 			// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}}).ErrOnNil("POS")`
 			// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
 			//
-			// `firm.Backed()` skips `nil` pointers; with `ErrOnNil()`, a `firm.ErrInvalidValue()` is merged instead
+			// `firm.Backed()` skips `nil` pointers; with `ErrOnNil()`, a `firm.ErrNilPointer()` is merged instead
 			Validates(firm.RuleMap{
 				"Queries": {firm.Elems[[]Query](firm.Backed())},
 			}),
@@ -94,8 +94,8 @@ Try running the code above in [cmd/firm-try/main.go](cmd/firm-try/main.go)--each
 
 ```sh
 go run github.com/s12chung/firm/cmd/firm-try@latest '{"queries":[{"str":""},{"pos":"Noun"}]}'
-# main.Config.Queries.[0].POS.Invalid: POS is not valid, main.Config.Queries.[0].Str.Present: Str is not present, main.Config.Queries.[1].Str.Present: Str is not present
-# main.Config.Queries.[0].POS.Invalid: POS no es valido, main.Config.Queries.[0].Str.Present: Str no es presento, main.Config.Queries.[1].Str.Present: Str no es presento
+# main.Config.Queries.[0].POS.Nil: POS is nil, main.Config.Queries.[0].Str.Present: Str is not present, main.Config.Queries.[1].Str.Present: Str is not present
+# main.Config.Queries.[0].POS.Nil: POS es nil, main.Config.Queries.[0].Str.Present: Str no es presento, main.Config.Queries.[1].Str.Present: Str no es presento
 
 go run github.com/s12chung/firm/cmd/firm-try@latest '{}'
 # main.Config.Present: main.Config is not present
@@ -146,7 +146,7 @@ To simplify `firm.Validator` and `firm.Rule` implementations, validators must up
 
 **Type Coherence**: On validation creation (`RegisterType()` or any validator constructor), `firm.Rule.TypeCheck()` is called to ensure type coherence with the validator 
  
-**Safe Values**: Safe values are defined as a non-pointer valid `reflect.Value`. Only `ValidateAny()/Validate()` may receive an unsafe value. Pointers are indirected and invalid `reflect.Value`s (often from a `nil` pointer) at these entry points are skipped by default. Built-in validators can call `ErrOnNilSelf()` to return a `firm.ErrInvalidValue()` instead. `ValidateAny()/Validate()` must also ensure that only safe values are passed down to:
+**Safe Values**: Safe values are defined as a non-pointer valid `reflect.Value`. Only `ValidateAny()/Validate()` may receive an unsafe value. Pointers are indirected and `nil` pointers at these entry points are skipped by default. Built-in validators can call `ErrOnNilSelf()` to return a `firm.ErrNilPointer()` instead. `ValidateAny()/Validate()` must also ensure that only safe values are passed down to:
 
 - `firm.Rule`
 - `ValidateMerge()`
@@ -154,7 +154,7 @@ To simplify `firm.Validator` and `firm.Rule` implementations, validators must up
 `ValidateMerge()` is the only place within `firm` that contains unsafe values, as it may need to recurse. When doing so, `ValidateMerge()` converts unsafe values to safe values by:
 
 - Indirecting the pointers
-- Skipping invalid `reflect.Value`s (often from `nil` pointers) by default. Built-in validators can call `ErrOnNil()` to merge a `firm.ErrInvalidValue()` before skipping.
+- Skipping `nil` pointers by default. Built-in validators can call `ErrOnNil()` to merge a `firm.ErrNilPointer()` before skipping.
 
 The safe values flow looks like this:
 
@@ -383,12 +383,12 @@ type ValidatorTyped[T any] interface {
 
 Implement your own `firm.Validator` with these helpers:
 
-- `firm.ImplValidateAny(v, errOnNilSelf, data)` - implementation calls the validator's `TypeCheck()`, indirects pointers, and skips invalid values unless `errOnNilSelf` is set--then returns `firm.ErrInvalidValue()`
-- `firm.ImplValidateValue(v, value)` - implementation assumes `TypeCheck` is called. Panics on an invalid value.
-- `firm.MustValidValue(value)` - panics when `value` is not valid. A helper function for nicer panic messages for invalid values in `ValidateMerge()`.
-- `firm.ImplValidateMerge(value, key, errorMap, rules)` - implementation assumes `TypeCheck` is called, as it iterates `rules` and merges them into the errorMap. Panics on an invalid value with `firm.MustValidValue()`.
-- `firm.ImplValidateMergeIndirected(value, key, errorMap, rules, errOnNil)` - calls `firm.ImplValidateMerge()` after indirecting the value. If the indirected value is invalid (often from a `nil` pointer), `firm.ErrInvalidValue()` is merged into `errorMap` when `errOnNil` is set, and skipped otherwise. In both cases, the call to `firm.ImplValidateMerge()` is skipped.
-- `firm.ImplValidate(v, errOnNilSelf, data)` - implementation does no type checking on runtime because `Validate()` is a typed function (often with generics). Like `firm.ImplValidateAny()`, invalid values are skipped unless `errOnNilSelf` is set
+- `firm.ImplValidateAny(v, errOnNilSelf, data)` - implementation calls the validator's `TypeCheck()`, indirects pointers, and skips `nil` pointers unless `errOnNilSelf` is set--then returns `firm.ErrNilPointer()`
+- `firm.ImplValidateValue(v, value)` - implementation assumes `TypeCheck` is called. Panics on a `nil` pointer.
+- `firm.MustValidValue(value)` - panics when `value` is not valid. A helper function for nicer panic messages for `nil` pointers in `ValidateMerge()`.
+- `firm.ImplValidateMerge(value, key, errorMap, rules)` - implementation assumes `TypeCheck` is called, as it iterates `rules` and merges them into the errorMap. Panics on a `nil` pointer with `firm.MustValidValue()`.
+- `firm.ImplValidateMergeIndirected(value, key, errorMap, rules, errOnNil)` - calls `firm.ImplValidateMerge()` after indirecting the value. If the indirected value is a `nil` pointer, `firm.ErrNilPointer()` is merged into `errorMap` when `errOnNil` is set, and skipped otherwise. In both cases, the call to `firm.ImplValidateMerge()` is skipped.
+- `firm.ImplValidate(v, errOnNilSelf, data)` - implementation does no type checking on runtime because `Validate()` is a typed function (often with generics). Like `firm.ImplValidateAny()`, `nil` pointers are skipped unless `errOnNilSelf` is set
 - `firm.TypeCheckAndBack(typ, rules, errContext)` - calls `firm.Rule.TypeCheck()` of each rule with the indirected `typ`, wrapping any error with `errContext` and handles the [Registry.Backed() gotcha](#registries)
 
 Ensure you enforce the caller contracts in [Types, Pointers, and Safe Values](#types-pointers-and-safe-values). `firm.ValueAnyVldr` in ([validator.go](validator.go)) is a simple example to build knowledge from.
@@ -416,7 +416,7 @@ firm.MustRegisterType(
 		// Replacing `firm.Backed()` with `firm.Fields[Query](firm.RuleMap{"Str": {rule.Present{}}})`
 		// will do the same behavior--repeating the `Definition` below. `firm.Backed()` is basically explicit recursion.
 		//
-		// `firm.Backed()` skips `nil` pointers; with `ErrOnNil()`, a `firm.ErrInvalidValue()` is merged instead
+		// `firm.Backed()` skips `nil` pointers; with `ErrOnNil()`, a `firm.ErrNilPointer()` is merged instead
 		Validates(firm.RuleMap{
 			"Queries": {firm.Elems[[]Query](firm.Backed())},
 		}),

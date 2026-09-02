@@ -85,11 +85,11 @@ func TestKeysAnyVldr_ValidateAll(t *testing.T) {
 		}},
 		{name: "Ptr_Key_nil", validator: ptrKeysValidator,
 			// the nil key is skipped by default, and errors with the ErrOnNil() variant
-			invalidKeys: []string{"[<nil>]"}, f: func() any {
+			nilKeys: []string{"[<nil>]"}, f: func() any {
 				return map[*int]sliceValidatorElement{nil: {Int: 1}}
 			}},
 		{name: "Ptr_Key_nil_mixed", validator: ptrKeysValidator,
-			errorKeys: []string{"[0]"}, invalidKeys: []string{"[<nil>]"}, f: func() any {
+			errorKeys: []string{"[0]"}, nilKeys: []string{"[<nil>]"}, f: func() any {
 				zero := 0
 				return map[*int]sliceValidatorElement{nil: {Int: 1}, &zero: {Int: 1}}
 			}},
@@ -186,11 +186,11 @@ func TestValuesAnyVldr_ValidateAll(t *testing.T) {
 		}},
 		{name: "Ptr_Value_nil", validator: ptrValuesValidator,
 			// the nil value is skipped by default, and errors with the ErrOnNil() variant
-			invalidKeys: []string{"[a]"}, f: func() any {
+			nilKeys: []string{"[a]"}, f: func() any {
 				return map[string]*sliceValidatorElement{"a": nil}
 			}},
 		{name: "Ptr_Value_nil_mixed", validator: ptrValuesValidator,
-			errorKeys: []string{"[c]", "[c].Int"}, invalidKeys: []string{"[b]"}, f: func() any {
+			errorKeys: []string{"[c]", "[c].Int"}, nilKeys: []string{"[b]"}, f: func() any {
 				return map[string]*sliceValidatorElement{"a": {Int: 1}, "b": nil, "c": {}}
 			}},
 
@@ -201,7 +201,7 @@ func TestValuesAnyVldr_ValidateAll(t *testing.T) {
 			return &map[string]**sliceValidatorElement{"a": toElemPtrPtr(sliceValidatorElement{Int: 1})}
 		}},
 		{name: "Double_Ptr_Value_nil_mixed", validator: ptrPtValuesValidator,
-			errorKeys: []string{"[c]", "[c].Int"}, invalidKeys: []string{"[b]"}, f: func() any {
+			errorKeys: []string{"[c]", "[c].Int"}, nilKeys: []string{"[b]"}, f: func() any {
 				return &map[string]**sliceValidatorElement{
 					"a": toElemPtrPtr(sliceValidatorElement{Int: 1}), "b": nil, "c": toElemPtrPtr(sliceValidatorElement{})}
 			}},
@@ -320,7 +320,7 @@ func TestKeyValuesAnyVldr_ValidateAll(t *testing.T) {
 		{name: "Ptr_Value_valid", validator: ptrKeyValuesValidator, errorKeys: nil, f: func() any {
 			return map[string]*sliceValidatorElement{"a": {Int: 1}}
 		}},
-		{name: "Ptr_Value_nil", validator: ptrKeyValuesValidator, invalidKeys: []string{"[a].Value"}, f: func() any {
+		{name: "Ptr_Value_nil", validator: ptrKeyValuesValidator, nilKeys: []string{"[a].Value"}, f: func() any {
 			return map[string]*sliceValidatorElement{"a": nil}
 		}},
 	}, validator)
@@ -343,8 +343,8 @@ type mapValidatorTestCase struct {
 	// defaults to the test's default validator
 	validator Validator
 	errorKeys []string
-	// invalidKeys keys Invalid errors for invalid values (e.g. nil pointer keys/values)
-	invalidKeys []string
+	// nilKeys keys Nil errors for nil pointers (e.g. nil pointer keys/values)
+	nilKeys []string
 }
 
 type anyWithErrTC struct {
@@ -406,7 +406,7 @@ func testMapValidateAllTypes[V Validator](t *testing.T, validator V, nilPtrData 
 			require.Equal(t, tc.result, validator.ValidateAny(tc.data))
 			// skipped nil values error with the ErrOnNilSelf() variant
 			if tc.result == nil {
-				require.Equal(t, ErrInvalidValue(), errOnNilSelfValidator.ValidateAny(tc.data))
+				require.Equal(t, ErrNilPointer(), errOnNilSelfValidator.ValidateAny(tc.data))
 			}
 		})
 	}
@@ -421,23 +421,23 @@ func testMapValidateAllCases(t *testing.T, cases []mapValidatorTestCase, default
 			if validator == nil {
 				validator = defaultValidator
 			}
-			run := func(v Validator, invalidKeySuffixes []string) {
+			run := func(v Validator, nilKeySuffixes []string) {
 				rawData := tc.f()
 				// rawData comes boxed in an any, so &rawData would be a *any; build a typed pointer instead
 				ptrData := reflect.New(reflect.TypeOf(rawData))
 				ptrData.Elem().Set(reflect.ValueOf(rawData))
 				testValidateAllKeys(t, v, rawData,
-					joinAll(tc.errorKeys, presentRuleKey), invalidKeySuffixes)
+					joinAll(tc.errorKeys, presentRuleKey), nilKeySuffixes)
 				testValidateAllKeys(t, v, ptrData.Interface(),
-					joinAll(tc.errorKeys, presentRuleKey), invalidKeySuffixes)
+					joinAll(tc.errorKeys, presentRuleKey), nilKeySuffixes)
 			}
 			if errOnNilV := errOnNilValidator(validator); errOnNilV != nil {
-				// invalid values (e.g. nil pointers) are skipped by default, and errors with the ErrOnNil() variant
+				// nil pointers are skipped by default, and error with the ErrOnNil() variant
 				run(validator, nil)
-				run(errOnNilV, joinAll(tc.invalidKeys, invalidKey))
+				run(errOnNilV, joinAll(tc.nilKeys, nilKey))
 			} else {
-				// no ErrOnNil() variant, so invalid values are surfaced by the rules themselves
-				run(validator, joinAll(tc.invalidKeys, invalidKey))
+				// no ErrOnNil() variant, so nil pointers are surfaced by the rules themselves
+				run(validator, joinAll(tc.nilKeys, nilKey))
 			}
 		})
 	}

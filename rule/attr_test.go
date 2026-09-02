@@ -63,7 +63,7 @@ func TestAttr_TypeCheck(t *testing.T) {
 	}{
 		{name: "normal", data: " ", rule: intEqual(1)},
 		{name: "invalid_data", data: 0, rule: intEqual(2),
-			ruleName: "Len", badCondition: "does not have a length (not a Slice, Array, Array pointer, Channel, Map or String)"},
+			ruleName: "Len", badCondition: "does not have a length (not a Slice, Array, Channel, Map or String)"},
 		{name: "invalid_rule", data: " ", rule: Less[string]{To: ""},
 			errData: 0, ruleName: "Less", badCondition: "has Attr, Len, which is not a string"},
 	}

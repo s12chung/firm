@@ -19,7 +19,6 @@ func TestLen_Get(t *testing.T) {
 	}{
 		{name: "slice", data: []int{1, 2}, result: 2},
 		{name: "array", data: [3]int{1, 2, 3}, result: 3},
-		{name: "array_pointer", data: &[3]int{1, 2, 3}, result: 3},
 		{name: "map", data: map[int]int{1: 1, 2: 2}, result: 2},
 		{name: "channel", data: make(chan int), result: 0},
 		{name: "string", data: "abc", result: 3},
@@ -34,7 +33,7 @@ func TestLen_Get(t *testing.T) {
 }
 
 func TestLen_TypeCheck(t *testing.T) {
-	badCondition := "does not have a length (not a Slice, Array, Array pointer, Channel, Map or String)"
+	badCondition := "does not have a length (not a Slice, Array, Channel, Map or String)"
 
 	tcs := []struct {
 		name         string
@@ -42,11 +41,8 @@ func TestLen_TypeCheck(t *testing.T) {
 		badCondition string
 	}{
 		{name: "slice", data: []int{1, 2}},
-		{name: "slice_pointer", data: &[]int{1, 2}, badCondition: badCondition},
 		{name: "array", data: [3]int{1, 2, 3}},
-		{name: "array_pointer", data: &[3]int{1, 2, 3}},
 		{name: "map", data: map[int]int{1: 1, 2: 2}},
-		{name: "map_pointer", data: &map[int]int{1: 1, 2: 2}, badCondition: badCondition},
 		{name: "channel", data: make(chan int)},
 		{name: "string", data: "abc"},
 		{name: "int", data: 0, badCondition: badCondition},

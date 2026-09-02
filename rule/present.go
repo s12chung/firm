@@ -6,12 +6,12 @@ import (
 	"github.com/s12chung/firm"
 )
 
-// Present checks if data is non-Zero, valid, and not of length 0
+// Present checks if data is non-Zero and not of length 0
 type Present struct{}
 
 // ValidateValue returns true if the data is valid (assumes TypeCheck is called)
 func (p Present) ValidateValue(value reflect.Value) firm.ErrorMap {
-	if !value.IsValid() || value.IsZero() {
+	if value.IsZero() {
 		return errMapPresent
 	}
 	//nolint:exhaustive // only checking against .Len() kinds
@@ -20,8 +20,6 @@ func (p Present) ValidateValue(value reflect.Value) firm.ErrorMap {
 		if value.Len() == 0 {
 			return errMapPresent
 		}
-	case reflect.Pointer:
-		return p.ValidateValue(value.Elem())
 	}
 	return nil
 }

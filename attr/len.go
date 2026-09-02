@@ -24,11 +24,6 @@ func (l Len) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 	switch typ.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.Chan, reflect.String:
 		return nil
-	case reflect.Pointer:
-		// reflect.Len only handles pointers to Arrays
-		if typ.Elem().Kind() == reflect.Array {
-			return nil
-		}
 	}
-	return firm.NewRuleTypeError(l.Name(), typ, "does not have a length (not a Slice, Array, Array pointer, Channel, Map or String)")
+	return firm.NewRuleTypeError(l.Name(), typ, "does not have a length (not a Slice, Array, Channel, Map or String)")
 }

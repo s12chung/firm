@@ -199,7 +199,7 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			}
 			if tc.name == "typed_nil_err_on_nil_self" {
 				var data *registryParent
-				require.Equal(ErrInvalidValue(), registry.ValidateAny(data))
+				require.Equal(ErrNilPointer(), registry.ValidateAny(data))
 				return
 			}
 			if strings.HasPrefix(tc.name, "not_found") {
@@ -335,7 +335,7 @@ func TestRegistry_ErrOnNil(t *testing.T) {
 	require := require.New(t)
 
 	expected := ErrorMap{}
-	expected.Merge("firm.registryErrOnNil.Pt", ErrInvalidValue())
+	expected.Merge("firm.registryErrOnNil.Pt", ErrNilPointer())
 
 	// ErrOnNil() before Validates()--ordering does not matter
 	registry := &Registry{}

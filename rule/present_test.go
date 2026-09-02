@@ -24,28 +24,19 @@ func TestPresent_ValidateValue(t *testing.T) {
 		{name: "string_empty", data: "", hasError: true},
 
 		{name: "struct", data: presentStruct{Integer: 1}},
-		{name: "struct_pointer", data: &presentStruct{Integer: 1}},
 		{name: "struct_empty", data: presentStruct{}, hasError: true},
-		{name: "struct_empty_pointer", data: &presentStruct{}, hasError: true},
 
 		{name: "slice", data: []int{1, 2}},
-		{name: "slice_pointer", data: []int{1, 2}},
 		{name: "slice_empty", data: []int{}, hasError: true},
-		{name: "slice_empty_pointer", data: &[]int{}, hasError: true},
 
 		{name: "array", data: [3]int{1, 2, 3}},
-		{name: "array_pointer", data: &[3]int{1, 2, 3}},
 		{name: "array_empty", data: [3]int{}, hasError: true},
-		{name: "array_empty_pointer", data: &[3]int{}, hasError: true},
 
 		{name: "map", data: map[int]int{1: 1, 2: 2}},
-		{name: "map_pointer", data: &map[int]int{1: 1, 2: 2}},
 		{name: "map_empty", data: map[int]int{}, hasError: true},
-		{name: "map_empty_pointer", data: &map[int]int{}, hasError: true},
 
 		{name: "func", data: func() {}},
 		{name: "channel_empty", data: make(chan int), hasError: true},
-		{name: "nil", data: nil, hasError: true},
 	}
 
 	for _, tc := range tcs {

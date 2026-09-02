@@ -28,7 +28,7 @@ type NotFoundRule struct{}
 
 // ValidateValue validates the value, naming the value's type as not found in the Registry
 func (n NotFoundRule) ValidateValue(value reflect.Value) ErrorMap {
-	// invalid values and nilType stand-ins have no type to name
+	// nil pointers and nilType stand-ins have no type to name
 	if !value.IsValid() || value.Type() == nilValueType {
 		return n.ErrorMap()
 	}
@@ -41,8 +41,8 @@ func (n NotFoundRule) ValidateValue(value reflect.Value) ErrorMap {
 // TypeCheck checks whether the type is valid for the Rule
 func (n NotFoundRule) TypeCheck(_ reflect.Type) *RuleTypeError { return nil }
 
-// ErrorMap returns the ErrorMap returned from ValidateValue, when the value is invalid
-// and has no type to name
+// ErrorMap returns the ErrorMap returned from ValidateValue,
+// when the value is a nil pointer and has no type to name
 func (n NotFoundRule) ErrorMap() ErrorMap {
 	return ErrorMap{"NotFound": TemplateError{Template: "type, {{.RootTypeName}}, not found in Registry"}}
 }
