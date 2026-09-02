@@ -34,6 +34,10 @@ type Definition struct {
 	// errOnNilFields flags fields to merge ErrInvalidValue() on, when the field's value is
 	// invalid (often from a nil pointer); nil is unset
 	errOnNilFields []string
+
+	// errOnNilSelf flags to merge ErrInvalidValue(), when the value itself is invalid
+	// (often from a nil pointer) in ValidateAny()/Validate()
+	errOnNilSelf bool
 }
 
 // ValidatesSelf defines rules of "itself" as a Value
@@ -73,6 +77,17 @@ func (s *Definition) ErrOnNil(fields ...string) *Definition {
 		panic(fmt.Sprintf("ErrOnNil() called with no fields in type: %v", s.typ.String()))
 	}
 	s.errOnNilFields = fields
+	return s
+}
+
+// ErrOnNilSelf flags to merge firm.ErrInvalidValue(), when the value itself is nil
+// (often from a nil pointer) in firm.Registry.ValidateAny()/Validate(), instead of skipping it.
+// Panics when called twice
+func (s *Definition) ErrOnNilSelf() *Definition {
+	if s.errOnNilSelf {
+		panic(fmt.Sprintf("ErrOnNilSelf() called twice in type: %v", s.typ.String()))
+	}
+	s.errOnNilSelf = true
 	return s
 }
 

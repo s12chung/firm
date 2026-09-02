@@ -41,7 +41,7 @@ type cycleSliceChild struct {
 // cycleCustomVldr wraps a Rule like RuleVldr, exposing its rules via AllRules()
 type cycleCustomVldr struct{ Rule }
 
-func (c cycleCustomVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(c, data) }
+func (c cycleCustomVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(c, false, data) }
 
 func (c cycleCustomVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	ImplValidateMerge(value, key, errorMap, []Rule{c.Rule})
@@ -52,7 +52,7 @@ func (c cycleCustomVldr) AllRules() []Rule { return []Rule{c.Rule} }
 // cycleOpaqueVldr is like cycleCustomVldr, but without AllRules()
 type cycleOpaqueVldr struct{ Rule }
 
-func (c cycleOpaqueVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(c, data) }
+func (c cycleOpaqueVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(c, false, data) }
 
 func (c cycleOpaqueVldr) ValidateMerge(value reflect.Value, key string, errorMap ErrorMap) {
 	ImplValidateMerge(value, key, errorMap, []Rule{c.Rule})
@@ -173,6 +173,10 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			name:       "typed_nil",
 			definition: NewDefinition[registryParent]().ValidatesSelf(presentRule{}),
 		},
+		{
+			name:       "typed_nil_err_on_nil_self",
+			definition: NewDefinition[registryParent]().ValidatesSelf(presentRule{}).ErrOnNilSelf(),
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -188,6 +192,12 @@ func TestRegistry_ValidateAll(t *testing.T) {
 				return
 			}
 			if tc.name == "typed_nil" {
+				var data *registryParent
+				// the typed nil is skipped by default, and errors with the ErrOnNilSelf() variant
+				require.Nil(registry.ValidateAny(data))
+				return
+			}
+			if tc.name == "typed_nil_err_on_nil_self" {
 				var data *registryParent
 				require.Equal(ErrInvalidValue(), registry.ValidateAny(data))
 				return

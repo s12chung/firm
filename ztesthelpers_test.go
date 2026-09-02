@@ -79,6 +79,32 @@ func errOnNilValidator(validator Validator) Validator {
 	}
 }
 
+// errOnNilSelfer is a Validator whose ErrOnNilSelf() returns its own type--setters return copies
+type errOnNilSelfer[V Validator] interface {
+	Validator
+	ErrOnNilSelf() V
+}
+
+// testErrOnNilSelf asserts nil values are skipped by default, and error with the ErrOnNilSelf()
+// variant--whose setter returns a copy, leaving the validator unchanged
+func testErrOnNilSelf(t *testing.T, validator any) {
+	require := require.New(t)
+
+	v, ok := validator.(Validator)
+	require.True(ok)
+	require.Nil(v.ValidateAny(nil))
+
+	// ErrOnNilSelf() returns the validator's own type--setters return copies
+	method := reflect.ValueOf(v).MethodByName("ErrOnNilSelf")
+	require.True(method.IsValid())
+	errOnNilSelfValidator, ok := reflect.TypeAssert[Validator](method.Call(nil)[0])
+	require.True(ok)
+	require.Equal(ErrInvalidValue(), errOnNilSelfValidator.ValidateAny(nil))
+
+	// the setter returns a copy--the unset validator still skips
+	require.Nil(v.ValidateAny(nil))
+}
+
 //nolint:unparam // leave it for tests
 func presentRuleError(errorKey ErrorKey) *TemplateError {
 	return &TemplateError{ErrorKey: errorKey, Template: presentRuleKey + " template"}

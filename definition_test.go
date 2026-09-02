@@ -65,6 +65,17 @@ func TestDefinition_ErrOnNil(t *testing.T) {
 	require.Panics(func() { NewDefinition[int]().ErrOnNil() })
 }
 
+func TestDefinition_ErrOnNilSelf(t *testing.T) {
+	require := require.New(t)
+
+	require.True(NewDefinition[Child]().ErrOnNilSelf().errOnNilSelf)
+
+	// called twice
+	require.Panics(func() { NewDefinition[Child]().ErrOnNilSelf().ErrOnNilSelf() })
+	// the self value applies to non-structs too
+	require.NotPanics(func() { NewDefinition[int]().ErrOnNilSelf() })
+}
+
 func TestDefinition_GettersReturnCopies(t *testing.T) {
 	definition := NewDefinition[Child]().
 		ValidatesSelf(presentRule{}).

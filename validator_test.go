@@ -1053,6 +1053,9 @@ func TestFieldsVldr_Validate_PtrType(t *testing.T) {
 
 func TestFieldsAnyVldr_ValidateAll(t *testing.T) {
 	validator := testRegistry.Validator(reflect.TypeFor[parent]())
+	valueAnyV, ok := validator.(*ValueAnyVldr)
+	require.True(t, ok)
+	errOnNilSelfValidator := valueAnyV.ErrOnNilSelf()
 
 	tcs := []struct {
 		name   string
@@ -1060,11 +1063,17 @@ func TestFieldsAnyVldr_ValidateAll(t *testing.T) {
 		result ErrorMap
 	}{
 		{name: "not_struct", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: ErrInvalidValue()},
-		{name: "nil_pointer", data: (*parent)(nil), result: ErrInvalidValue()},
+		{name: "invalid", data: nil, result: nil},
+		{name: "nil_pointer", data: (*parent)(nil), result: nil},
 	}
 	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.result, validator.ValidateAny(tc.data))
+			// skipped nil values error with the ErrOnNilSelf() variant
+			if tc.result == nil {
+				require.Equal(t, ErrInvalidValue(), errOnNilSelfValidator.ValidateAny(tc.data))
+			}
+		})
 	}
 
 	for _, tc := range structValidatorTestCases {
@@ -1181,6 +1190,39 @@ func TestFieldsVldr_ErrOnNil(t *testing.T) {
 		expected := ErrorMap{errorKey: *presentRuleError(errorKey)}
 		require.Equal(t, expected, newValidator().ErrOnNil("Pt").Validate(errOnNilStruct{Str: "ok", Pt: &Child{}}))
 	})
+}
+
+func TestValidator_ErrOnNilSelf(t *testing.T) {
+	valueAnyV, err := ValueAnyWithErr(reflect.TypeFor[Child]())
+	require.NoError(t, err)
+
+	tcs := []struct {
+		name    string
+		newVldr func() any
+	}{
+		{name: "ValueAnyVldr", newVldr: func() any { return valueAnyV }},
+		{name: "FieldsVldr", newVldr: func() any {
+			return Fields[errOnNilStruct](RuleMap{"Str": {presentRule{}}})
+		}},
+		{name: "ElemsVldr", newVldr: func() any { return Elems[[]*Child](presentRule{}) }},
+		{name: "KeysVldr", newVldr: func() any { return Keys[map[*int]Child](presentRule{}) }},
+		{name: "ValuesVldr", newVldr: func() any { return Values[map[string]*Child](presentRule{}) }},
+		{name: "KeyValuesVldr", newVldr: func() any { return KeyValues[map[string]*Child](presentRule{}) }},
+		{name: "RuleVldr", newVldr: func() any { return RuleVldr{Rule: presentRule{}} }},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			testErrOnNilSelf(t, tc.newVldr())
+		})
+	}
+}
+
+func TestValidatorTyped_ErrOnNilSelf(t *testing.T) {
+	// typed Validate() follows the same flag
+	newPtrFields := func() FieldsVldr[*errOnNilStruct] { return Fields[*errOnNilStruct](RuleMap{"Str": {presentRule{}}}) }
+	var nilStructPtr *errOnNilStruct
+	require.Nil(t, newPtrFields().Validate(nilStructPtr))
+	require.Equal(t, ErrInvalidValue(), newPtrFields().ErrOnNilSelf().Validate(nilStructPtr))
 }
 
 type sliceValidatorElement struct {
@@ -1331,6 +1373,7 @@ func TestElemsVldr_Validate(t *testing.T) {
 
 func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 	validator := elemsValidator
+	errOnNilSelfValidator := validator.ErrOnNilSelf()
 
 	tcs := []struct {
 		name   string
@@ -1338,11 +1381,17 @@ func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 		result ErrorMap
 	}{
 		{name: "not_slice", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: ErrInvalidValue()},
-		{name: "nil_pointer", data: (*[]sliceValidatorElement)(nil), result: ErrInvalidValue()},
+		{name: "invalid", data: nil, result: nil},
+		{name: "nil_pointer", data: (*[]sliceValidatorElement)(nil), result: nil},
 	}
 	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.result, validator.ValidateAny(tc.data))
+			// skipped nil values error with the ErrOnNilSelf() variant
+			if tc.result == nil {
+				require.Equal(t, ErrInvalidValue(), errOnNilSelfValidator.ValidateAny(tc.data))
+			}
+		})
 	}
 
 	for _, tc := range sliceValidatorTestCases {
@@ -1471,8 +1520,8 @@ func TestValueAnyVldr_ValidateAll(t *testing.T) {
 		result         ErrorMap
 		typeCheckError bool
 	}{
-		{name: "invalid", rule: presentRule{}, data: nil, result: ErrInvalidValue()},
-		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: ErrInvalidValue()},
+		{name: "invalid", rule: presentRule{}, data: nil},
+		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil)},
 		{name: "bad_type_with_rule_validator", rule: onlyKindRule{kind: reflect.String}, data: 1, newError: true},
 		{name: "bad_type_after_new", rule: onlyKindRule{kind: reflect.Bool}, data: 1, typeCheckError: true},
 	}
@@ -1492,6 +1541,10 @@ func TestValueAnyVldr_ValidateAll(t *testing.T) {
 				result = typeCheckErrorResult(validator, tc.data)
 			}
 			require.Equal(result, validator.ValidateAny(tc.data))
+			// skipped nil values error with the ErrOnNilSelf() variant
+			if tc.result == nil && !tc.typeCheckError {
+				require.Equal(ErrInvalidValue(), validator.ErrOnNilSelf().ValidateAny(tc.data))
+			}
 		})
 	}
 
@@ -1548,8 +1601,8 @@ func TestRuleVldr_ValidateAll(t *testing.T) {
 		result         ErrorMap
 		typeCheckError bool
 	}{
-		{name: "invalid", rule: presentRule{}, data: nil, result: ErrInvalidValue()},
-		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil), result: ErrInvalidValue()},
+		{name: "invalid", rule: presentRule{}, data: nil},
+		{name: "nil_pointer", rule: presentRule{}, data: (*bool)(nil)},
 		{name: "bad_type", rule: onlyKindRule{kind: reflect.Bool}, data: 1, typeCheckError: true},
 	}
 	for _, tc := range edgeTcs {
@@ -1561,6 +1614,10 @@ func TestRuleVldr_ValidateAll(t *testing.T) {
 
 			validator := RuleVldr{Rule: tc.rule}
 			require.Equal(t, result, validator.ValidateAny(tc.data))
+			// skipped nil values error with the ErrOnNilSelf() variant
+			if tc.result == nil && !tc.typeCheckError {
+				require.Equal(t, ErrInvalidValue(), validator.ErrOnNilSelf().ValidateAny(tc.data))
+			}
 		})
 	}
 

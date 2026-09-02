@@ -385,19 +385,30 @@ func testAnyWithErr(t *testing.T, tcs []anyWithErrTC, newValidator func(typ refl
 	}
 }
 
-// testMapValidateAllTypes asserts the error results of ValidateAny for non-map, nil and nil-pointer data
-func testMapValidateAllTypes(t *testing.T, validator Validator, nilPtrData any) {
+// testMapValidateAllTypes asserts the error results of ValidateAny for non-map, nil and nil-pointer data.
+// Nil values (e.g. nil pointers) are skipped by default, and error with the ErrOnNilSelf() variant
+func testMapValidateAllTypes[V Validator](t *testing.T, validator V, nilPtrData any) {
+	selfer, ok := any(validator).(errOnNilSelfer[V])
+	require.True(t, ok)
+	errOnNilSelfValidator := selfer.ErrOnNilSelf()
+
 	tcs := []struct {
 		name   string
 		data   any
 		result ErrorMap
 	}{
 		{name: "not_map", data: 1, result: typeCheckErrorResult(validator, 1)},
-		{name: "invalid", data: nil, result: ErrInvalidValue()},
-		{name: "nil_pointer", data: nilPtrData, result: ErrInvalidValue()},
+		{name: "invalid", data: nil, result: nil},
+		{name: "nil_pointer", data: nilPtrData, result: nil},
 	}
 	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.result, validator.ValidateAny(tc.data)) })
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.result, validator.ValidateAny(tc.data))
+			// skipped nil values error with the ErrOnNilSelf() variant
+			if tc.result == nil {
+				require.Equal(t, ErrInvalidValue(), errOnNilSelfValidator.ValidateAny(tc.data))
+			}
+		})
 	}
 }
 

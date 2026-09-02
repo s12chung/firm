@@ -51,6 +51,9 @@ func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 	if err != nil {
 		return nil, err
 	}
+	if definition.errOnNilSelf {
+		v = v.ErrOnNilSelf()
+	}
 	if err := checkRecursion(r, typ, v.Rules()); err != nil {
 		return nil, err
 	}
@@ -90,10 +93,11 @@ var nilValueType = reflect.TypeFor[nilType]()
 func (r *Registry) ValidateAny(data any) ErrorMap {
 	value := reflect.ValueOf(data)
 	if !value.IsValid() {
+		// the type can't be inferred from nil, and nilType stand-ins can't be registered,
+		// so a "not found in Registry" error is returned
 		value = nilValue
 	}
-	// value is used here, so can't use ImplValidateValue to remove value.Type() call
-	return validateValueResult(r.DefaultedValidator(value.Type()), value)
+	return r.DefaultedValidator(value.Type()).ValidateAny(value.Interface())
 }
 
 // ValidateValue validates the data value with the correct validator (assumes TypeCheck is called)

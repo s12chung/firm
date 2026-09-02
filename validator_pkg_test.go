@@ -73,7 +73,9 @@ var (
 	_ firm.ValidatorTyped[int] = positiveVldr{}
 )
 
-func (p positiveVldr) ValidateAny(data any) firm.ErrorMap { return firm.ImplValidateAny(p, data) }
+func (p positiveVldr) ValidateAny(data any) firm.ErrorMap {
+	return firm.ImplValidateAny(p, false, data)
+}
 
 func (p positiveVldr) ValidateValue(value reflect.Value) firm.ErrorMap {
 	return firm.ImplValidateValue(p, value)
@@ -87,7 +89,7 @@ func (p positiveVldr) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 	return firm.TypeCheck("positiveVldr", typ, reflect.TypeFor[int](), "")
 }
 
-func (p positiveVldr) Validate(data int) firm.ErrorMap { return firm.ImplValidate(p, data) }
+func (p positiveVldr) Validate(data int) firm.ErrorMap { return firm.ImplValidate(p, false, data) }
 
 func keyed(key firm.ErrorKey, templateError firm.TemplateError) firm.TemplateError {
 	templateError.ErrorKey = key
@@ -111,16 +113,16 @@ func TestCustomValidatorPkg(t *testing.T) {
 	require.Nil(v.Validate(1))
 	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.Validate(-1))
 
-	// ImplValidateAny - unsafe values are indirected, invalid values and TypeCheck are answered
+	// ImplValidateAny - unsafe values are indirected; invalid values are skipped by default
 	require.Nil(v.ValidateAny(1))
 	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(-1))
 
 	i := -1
 	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(&i))
-	require.Equal(firm.ErrorMap{"Invalid": firm.TemplateError{Template: "is not valid"}}, v.ValidateAny(nil))
+	require.Nil(v.ValidateAny(nil))
 
 	var pti *int
-	require.Equal(firm.ErrorMap{"Invalid": firm.TemplateError{Template: "is not valid"}}, v.ValidateAny(pti))
+	require.Nil(v.ValidateAny(pti))
 	require.Equal(firm.ErrorMap{"TypeCheck": typeCheckErr}, v.ValidateAny("str"))
 
 	// ImplValidateValue - safe value, assumes TypeCheck is called

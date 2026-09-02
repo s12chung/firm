@@ -141,7 +141,7 @@ To simplify `firm.Validator` and `firm.Rule` implementations, validators must up
 
 **Type Coherence**: On validation creation (`RegisterType()` or any validator constructor), `firm.Rule.TypeCheck()` is called to ensure type coherence with the validator 
  
-**Safe Values**: Safe values are defined as non-pointer valid `reflect.Value`s. There are two public use functions: `ValidateAny()/Validate()`. **Only these functions** may receive an unsafe value. Pointers are indirected and invalid `reflect.Value`s at these entry points return a `firm.ErrInvalidValue()`. `ValidateAny()/Validate()` must also ensure that only safe values are passed down to:
+**Safe Values**: Safe values are defined as non-pointer valid `reflect.Value`s. There are two public use functions: `ValidateAny()/Validate()`. **Only these functions** may receive an unsafe value. Pointers are indirected and invalid `reflect.Value`s (often from a `nil` pointer) at these entry points are skipped by default. Built-in validators can call `ErrOnNilSelf()` to return a `firm.ErrInvalidValue()` instead. `ValidateAny()/Validate()` must also ensure that only safe values are passed down to:
 
 - `firm.Rule`
 - `ValidateMerge()`
@@ -341,6 +341,16 @@ firm.NewDefinition[Parent]().Validates(firm.RuleMap{
 }).ErrOnNil("Child")
 ```
 
+The value itself--at `ValidateAny()/Validate()`--is skipped when `nil` too. To error on it instead, call `ErrOnNilSelf()`.
+
+```go
+// Require non-nil, when calling `ValidateAny()/Validate()` with a `nil` `*Config`
+firm.Fields[Config](firm.RuleMap{"Queries": {firm.Elems[[]Query](firm.Backed())}}).ErrOnNilSelf()
+
+// Same, but via a Definition--errors when `firm.Registry.ValidateAny()` receives a `nil` `*Config`
+firm.NewDefinition[Config]().ValidatesSelf(rule.Present{}).ErrOnNilSelf()
+```
+
 Via generics, `firm.ValidatorTyped[T any]` can call `Validate()`. Avoids reflection and enforces type safety. Each of these validators wrap around a -`AnyVldr` suffixed validator, which require a `reflect.Type` with no generics.
 
 ```go
@@ -366,12 +376,12 @@ type ValidatorTyped[T any] interface {
 
 Implement your own `firm.Validator` with these helpers:
 
-- `firm.ImplValidateAny(v, data)` - implementation calls `firm.TypeCheck()` indirects pointers, and returns `firm.ErrInvalidValue()` for unsafe values
+- `firm.ImplValidateAny(v, errOnNilSelf, data)` - implementation calls `firm.TypeCheck()`, indirects pointers, and skips invalid values unless `errOnNilSelf` is set--then returns `firm.ErrInvalidValue()`
 - `firm.ImplValidateValue(v, value)` - implementation assumes `TypeCheck` is called. Panics on an invalid value.
 - `firm.MustValidValue(value)` - panics when `value` is not valid. A helper function for nicer panic messages for invalid values in `ValidateMerge()`.
 - `firm.ImplValidateMerge(value, key, errorMap, rules)` - implementation assumes `TypeCheck` is called, as it iterates `rules` and merges them into the errorMap. Panics on an invalid value with `firm.MustValidValue()`.
 - `firm.ImplValidateMergeIndirected(value, key, errorMap, rules, errOnNil)` - calls `firm.ImplValidateMerge()` after indirecting the value. If the indirected value is invalid (often from a `nil` pointer), `firm.ErrInvalidValue()` is merged into `errorMap` when `errOnNil` is set, and skipped otherwise. In both cases, the call to `firm.ImplValidateMerge()` is skipped.
-- `firm.ImplValidate(v, data)` - implementation does no type checking on runtime because `Validate()` is a typed function (often with generics)
+- `firm.ImplValidate(v, errOnNilSelf, data)` - implementation does no type checking on runtime because `Validate()` is a typed function (often with generics). Like `firm.ImplValidateAny()`, invalid values are skipped unless `errOnNilSelf` is set
 - `firm.TypeCheckAndBack(typ, rules, errContext)` - calls `firm.Rule.TypeCheck()` of each rule with the indirected `typ`, wrapping any error with `errContext` and handles the [Registry.Backed() gotcha](#registries)
 
 Ensure you enforce the caller contracts in [Types, Pointers, and Safe Values](#types-pointers-and-safe-values). `firm.ValueAnyVldr` in ([validator.go](validator.go)) is a simple example to build knowledge from.
