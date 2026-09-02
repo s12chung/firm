@@ -332,74 +332,113 @@ type registryErrOnNil struct {
 }
 
 func TestRegistry_ErrOnNil(t *testing.T) {
-	require := require.New(t)
-
 	expected := ErrorMap{}
 	expected.Merge("firm.registryErrOnNil.Pt", ErrNilPointer())
 
-	// ErrOnNil() before Validates()--ordering does not matter
-	registry := &Registry{}
-	require.NoError(registry.RegisterType(NewDefinition[registryErrOnNil]().ErrOnNil("Pt").Validates(RuleMap{
-		"Str": {presentRule{}},
-		"Pt":  {},
-	})))
-	require.Equal(expected, registry.ValidateAny(registryErrOnNil{Str: "ok"}))
-	require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
+	tcs := []struct {
+		name       string
+		definition *Definition
+		data       registryErrOnNil
+	}{
+		{
+			// ErrOnNil() before Validates()--ordering does not matter
+			name: "before_validates",
+			definition: NewDefinition[registryErrOnNil]().ErrOnNil("Pt").Validates(RuleMap{
+				"Str": {presentRule{}},
+				"Pt":  {},
+			}),
+			data: registryErrOnNil{Str: "ok"},
+		},
+		{
+			// without a RuleMap, the ErrOnNil fields are added with no rules
+			name:       "no_rule_map",
+			definition: NewDefinition[registryErrOnNil]().ErrOnNil("Pt"),
+			data:       registryErrOnNil{Str: "not_ok"},
+		},
+		{
+			// ErrOnNil fields missing from the RuleMap are added with no rules
+			name: "missing_from_rule_map",
+			definition: NewDefinition[registryErrOnNil]().Validates(RuleMap{
+				"Str": {presentRule{}},
+			}).ErrOnNil("Pt"),
+			data: registryErrOnNil{Str: "not_ok"},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
 
-	// unknown or unexported fields error at RegisterType()
-	require.EqualError((&Registry{}).RegisterType(NewDefinition[registryErrOnNil]().Validates(RuleMap{
-		"Str": {presentRule{}},
-	}).ErrOnNil("Nope")), "RegisterType() with type firm.registryErrOnNil: ErrOnNil: field, Nope, not found in type: firm.registryErrOnNil")
-	require.EqualError((&Registry{}).RegisterType(NewDefinition[Child]().ErrOnNil("private")),
-		"RegisterType() with type firm.Child: ErrOnNil: field, private, is unexported in type: firm.Child")
-
-	// without a RuleMap, the ErrOnNil fields are added with no rules
-	registry = &Registry{}
-	require.NoError(registry.RegisterType(NewDefinition[registryErrOnNil]().ErrOnNil("Pt")))
-	require.Equal(expected, registry.ValidateAny(registryErrOnNil{Str: "not_ok"}))
-	require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
-
-	// ErrOnNil fields missing from the RuleMap are added with no rules
-	registry = &Registry{}
-	require.NoError(registry.RegisterType(NewDefinition[registryErrOnNil]().Validates(RuleMap{
-		"Str": {presentRule{}},
-	}).ErrOnNil("Pt")))
-	require.Equal(expected, registry.ValidateAny(registryErrOnNil{Str: "not_ok"}))
-	require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
+			registry := &Registry{}
+			require.NoError(registry.RegisterType(tc.definition))
+			require.Equal(expected, registry.ValidateAny(tc.data))
+			require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
+		})
+	}
+	t.Run("unknown_field", func(t *testing.T) {
+		require.EqualError(t, (&Registry{}).RegisterType(NewDefinition[registryErrOnNil]().Validates(RuleMap{
+			"Str": {presentRule{}},
+		}).ErrOnNil("Nope")), "RegisterType() with type firm.registryErrOnNil: ErrOnNil: field, Nope, not found in type: firm.registryErrOnNil")
+	})
+	t.Run("unexported_field", func(t *testing.T) {
+		require.EqualError(t, (&Registry{}).RegisterType(NewDefinition[Child]().ErrOnNil("private")),
+			"RegisterType() with type firm.Child: ErrOnNil: field, private, is unexported in type: firm.Child")
+	})
 }
 
 func TestRegistryBacker(t *testing.T) {
-	require := require.New(t)
-
 	registry := &Registry{}
-	require.NoError(registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
+	require.NoError(t, registry.RegisterType(NewDefinition[registryParent]().ValidatesSelf(presentRule{})))
 
-	// unstamped backers have no type, so the data's own type routes the validation
-	testValidateAll(t, registry.Backed(), registryParent{}, presentRuleError(""), presentRuleKey)
-	// wrapping in RuleVldr leaves the backer unstamped
-	testValidateAll(t, RuleVldr{Rule: registry.Backed()}, registryParent{}, presentRuleError(""), presentRuleKey)
-
-	require.Equal(notFoundError(registryNotFoundTest{}), registry.Backed().ValidateAny(registryNotFoundTest{}))
-	require.Equal(notFoundError(nilType{}), registry.Backed().ValidateAny(nil))
-
-	// stamped backers route by their stamped type
 	parentType := reflect.TypeFor[registryParent]()
-	stamped := RegistryBacker{Registry: registry, typ: parentType}
-	testValidateAll(t, stamped, registryParent{}, presentRuleError(""), presentRuleKey)
-	// registryNotFoundTest is unregistered, so the stamped type routes, not the data's own type
-	require.Equal(ErrorMap{"TypeCheck": NewRuleTypeError(
-		"ValueAnyVldr", reflect.TypeFor[registryNotFoundTest](), "is not matching type "+parentType.String(),
-	).TemplateError()}, stamped.ValidateAny(registryNotFoundTest{}))
+	tcs := []struct {
+		name      string
+		validator Validator
+	}{
+		{
+			// unstamped backers have no type, so the data's own type routes the validation
+			name:      "unstamped",
+			validator: registry.Backed(),
+		},
+		{
+			// wrapping in RuleVldr leaves the backer unstamped
+			name:      "rule_vldr_unstamped",
+			validator: RuleVldr{Rule: registry.Backed()},
+		},
+		{
+			// stamped backers route by their stamped type
+			name:      "stamped",
+			validator: RegistryBacker{Registry: registry, typ: parentType},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			testValidateAll(t, tc.validator, registryParent{}, presentRuleError(""), presentRuleKey)
+		})
+	}
 
-	// Type() returns the stamped type, nil when unstamped
-	require.Equal(parentType, stamped.Type())
-	require.Nil(registry.Backed().Type())
-	// TypeCheck checks against the stamped type
-	require.Nil(stamped.TypeCheck(parentType))
-	require.Equal(NewRuleTypeError("RegistryBacker", reflect.TypeFor[registryNotFoundTest](),
-		"is not matching type "+parentType.String()), stamped.TypeCheck(reflect.TypeFor[registryNotFoundTest]()))
-	// unstamped backers delegate TypeCheck to the Registry
-	require.Nil(registry.Backed().TypeCheck(reflect.TypeFor[registryNotFoundTest]()))
+	backer := registry.Backed()
+	t.Run("unstamped", func(t *testing.T) {
+		require.Equal(t, notFoundError(registryNotFoundTest{}), backer.ValidateAny(registryNotFoundTest{}))
+		require.Equal(t, notFoundError(nilType{}), backer.ValidateAny(nil))
+
+		// Type() and TypeCheck()
+		require.Nil(t, backer.Type())
+		require.Nil(t, backer.TypeCheck(reflect.TypeFor[registryNotFoundTest]()))
+	})
+
+	// registryNotFoundTest is unregistered, so the stamped type routes, not the data's own type
+	t.Run("stamped", func(t *testing.T) {
+		stamped := RegistryBacker{Registry: registry, typ: parentType}
+		require.Equal(t, ErrorMap{"TypeCheck": NewRuleTypeError(
+			"ValueAnyVldr", reflect.TypeFor[registryNotFoundTest](), "is not matching type "+parentType.String(),
+		).TemplateError()}, stamped.ValidateAny(registryNotFoundTest{}))
+
+		// Type() and TypeCheck()
+		require.Equal(t, parentType, stamped.Type())
+		require.Nil(t, stamped.TypeCheck(parentType))
+		require.Equal(t, NewRuleTypeError("RegistryBacker", reflect.TypeFor[registryNotFoundTest](),
+			"is not matching type "+parentType.String()), stamped.TypeCheck(reflect.TypeFor[registryNotFoundTest]()))
+	})
 }
 
 // nolint:funlen // a bunch of test cases
