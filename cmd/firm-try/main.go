@@ -41,7 +41,7 @@ func init() {
 	// For the `Query` struct
 	firm.MustRegisterType(firm.NewDefinition[Query]().Validates(firm.RuleMap{
 		"Str": {rule.Present{}},
-	}).ErrOnNil("POS")) // nil is skipped otherwise
+	}).NotNil("POS")) // nil is skipped otherwise
 }
 
 func readConfig(body []byte) (Config, error) {

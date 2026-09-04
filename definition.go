@@ -31,12 +31,12 @@ type Definition struct {
 	selfRulesSet bool
 	ruleMapSet   bool
 
-	// errOnNilFields flags fields to merge ErrNilPointer() on, when the field's value is
+	// notNilFields flags fields to merge ErrNilPointer() on, when the field's value is
 	// a nil pointer; nil is unset
-	errOnNilFields []string
+	notNilFields []string
 
-	// errOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer in ValidateAny()/Validate()
-	errOnNilSelf bool
+	// notNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer in ValidateAny()/Validate()
+	notNilSelf bool
 }
 
 // ValidatesSelf defines rules of "itself" as a Value
@@ -62,31 +62,31 @@ func (s *Definition) Validates(ruleMap RuleMap) *Definition {
 	return s
 }
 
-// ErrOnNil flags fields to merge firm.ErrNilPointer() on,
+// NotNil flags fields to merge firm.ErrNilPointer() on,
 // when the field's value is a nil pointer, instead of skipping it. Fields must be exported.
 // Panics on a non-struct type, no fields given, or called twice. Field checks happen at RegisterType()
-func (s *Definition) ErrOnNil(fields ...string) *Definition {
+func (s *Definition) NotNil(fields ...string) *Definition {
 	if s.typ.Kind() != reflect.Struct {
-		panic(fmt.Sprintf("ErrOnNil() called on a non-struct type: %v", s.typ.String()))
+		panic(fmt.Sprintf("NotNil() called on a non-struct type: %v", s.typ.String()))
 	}
-	if s.errOnNilFields != nil {
-		panic(fmt.Sprintf("ErrOnNil() called twice in type: %v", s.typ.String()))
+	if s.notNilFields != nil {
+		panic(fmt.Sprintf("NotNil() called twice in type: %v", s.typ.String()))
 	}
 	if len(fields) == 0 {
-		panic(fmt.Sprintf("ErrOnNil() called with no fields in type: %v", s.typ.String()))
+		panic(fmt.Sprintf("NotNil() called with no fields in type: %v", s.typ.String()))
 	}
-	s.errOnNilFields = fields
+	s.notNilFields = fields
 	return s
 }
 
-// ErrOnNilSelf flags to merge firm.ErrNilPointer(),
+// NotNilSelf flags to merge firm.ErrNilPointer(),
 // when the value itself is a nil pointer in firm.Registry.ValidateAny()/Validate(), instead of skipping it.
 // Panics when called twice
-func (s *Definition) ErrOnNilSelf() *Definition {
-	if s.errOnNilSelf {
-		panic(fmt.Sprintf("ErrOnNilSelf() called twice in type: %v", s.typ.String()))
+func (s *Definition) NotNilSelf() *Definition {
+	if s.notNilSelf {
+		panic(fmt.Sprintf("NotNilSelf() called twice in type: %v", s.typ.String()))
 	}
-	s.errOnNilSelf = true
+	s.notNilSelf = true
 	return s
 }
 

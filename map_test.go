@@ -23,7 +23,7 @@ func TestKeysAny(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, KeysAny(typ, presentRule{}))
 	require.Equal(t, expected, KeysAny(reflect.TypeFor[*map[string]Child](), presentRule{}))
-	require.Equal(t, expected.ErrOnNil(), KeysAny(typ, presentRule{}).ErrOnNil())
+	require.Equal(t, expected.NotNil(), KeysAny(typ, presentRule{}).NotNil())
 
 	require.Panics(t, func() { KeysAny(reflect.TypeFor[Child](), presentRule{}) })
 }
@@ -84,7 +84,7 @@ func TestKeysAnyVldr_ValidateAll(t *testing.T) {
 			return map[*int]sliceValidatorElement{&i: {Int: 1}}
 		}},
 		{name: "Ptr_Key_nil", validator: ptrKeysValidator,
-			// the nil key is skipped by default, and errors with the ErrOnNil() variant
+			// the nil key is skipped by default, and errors with the NotNil() variant
 			nilKeys: []string{"[<nil>]"}, f: func() any {
 				return map[*int]sliceValidatorElement{nil: {Int: 1}}
 			}},
@@ -123,7 +123,7 @@ func TestValuesAny(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, ValuesAny(typ, presentRule{}))
 	require.Equal(t, expected, ValuesAny(reflect.TypeFor[*map[string]Child](), presentRule{}))
-	require.Equal(t, expected.ErrOnNil(), ValuesAny(typ, presentRule{}).ErrOnNil())
+	require.Equal(t, expected.NotNil(), ValuesAny(typ, presentRule{}).NotNil())
 
 	require.Panics(t, func() { ValuesAny(reflect.TypeFor[Child](), presentRule{}) })
 }
@@ -185,7 +185,7 @@ func TestValuesAnyVldr_ValidateAll(t *testing.T) {
 			return map[string]*sliceValidatorElement{"a": {Int: 1}, "b": {Int: 2}}
 		}},
 		{name: "Ptr_Value_nil", validator: ptrValuesValidator,
-			// the nil value is skipped by default, and errors with the ErrOnNil() variant
+			// the nil value is skipped by default, and errors with the NotNil() variant
 			nilKeys: []string{"[a]"}, f: func() any {
 				return map[string]*sliceValidatorElement{"a": nil}
 			}},
@@ -386,11 +386,11 @@ func testAnyWithErr(t *testing.T, tcs []anyWithErrTC, newValidator func(typ refl
 }
 
 // testMapValidateAllTypes asserts the error results of ValidateAny for non-map, nil and nil-pointer data.
-// Nil values (e.g. nil pointers) are skipped by default, and error with the ErrOnNilSelf() variant
+// Nil values (e.g. nil pointers) are skipped by default, and error with the NotNilSelf() variant
 func testMapValidateAllTypes[V Validator](t *testing.T, validator V, nilPtrData any) {
-	selfer, ok := any(validator).(errOnNilSelfer[V])
+	selfer, ok := any(validator).(notNilSelfer[V])
 	require.True(t, ok)
-	errOnNilSelfValidator := selfer.ErrOnNilSelf()
+	notNilSelfValidator := selfer.NotNilSelf()
 
 	tcs := []struct {
 		name   string
@@ -404,16 +404,16 @@ func testMapValidateAllTypes[V Validator](t *testing.T, validator V, nilPtrData 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.result, validator.ValidateAny(tc.data))
-			// skipped nil values error with the ErrOnNilSelf() variant
+			// skipped nil values error with the NotNilSelf() variant
 			if tc.result == nil {
-				require.Equal(t, ErrNilPointer(), errOnNilSelfValidator.ValidateAny(tc.data))
+				require.Equal(t, ErrNilPointer(), notNilSelfValidator.ValidateAny(tc.data))
 			}
 		})
 	}
 }
 
 // testMapValidateAllCases asserts ValidateAny/ValidateValue/ValidateMerge for each case's data, both raw and pointer-boxed.
-// Cases whose validator has an ErrOnNil() variant run twice: skipped-by-default, and error-on-nil
+// Cases whose validator has an NotNil() variant run twice: skipped-by-default, and error-on-nil
 func testMapValidateAllCases(t *testing.T, cases []mapValidatorTestCase, defaultValidator Validator) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -431,12 +431,12 @@ func testMapValidateAllCases(t *testing.T, cases []mapValidatorTestCase, default
 				testValidateAllKeys(t, v, ptrData.Interface(),
 					joinAll(tc.errorKeys, presentRuleKey), nilKeySuffixes)
 			}
-			if errOnNilV := errOnNilValidator(validator); errOnNilV != nil {
-				// nil pointers are skipped by default, and error with the ErrOnNil() variant
+			if notNilV := notNilValidator(validator); notNilV != nil {
+				// nil pointers are skipped by default, and error with the NotNil() variant
 				run(validator, nil)
-				run(errOnNilV, joinAll(tc.nilKeys, nilKey))
+				run(notNilV, joinAll(tc.nilKeys, nilKey))
 			} else {
-				// no ErrOnNil() variant, so nil pointers are surfaced by the rules themselves
+				// no NotNil() variant, so nil pointers are surfaced by the rules themselves
 				run(validator, joinAll(tc.nilKeys, nilKey))
 			}
 		})

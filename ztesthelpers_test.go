@@ -62,44 +62,44 @@ func (p presentRule) ValidateValue(value reflect.Value) ErrorMap {
 }
 func (p presentRule) TypeCheck(_ reflect.Type) *RuleTypeError { return nil }
 
-func errOnNilValidator(validator Validator) Validator {
+func notNilValidator(validator Validator) Validator {
 	switch validator := validator.(type) {
 	case ElemsVldr[[]*sliceValidatorElement, *sliceValidatorElement]:
-		return validator.ErrOnNil()
+		return validator.NotNil()
 	case ElemsAnyVldr:
-		return validator.ErrOnNil()
+		return validator.NotNil()
 	case KeysVldr[map[*int]sliceValidatorElement, *int, sliceValidatorElement]:
-		return validator.ErrOnNil()
+		return validator.NotNil()
 	case ValuesVldr[map[string]*sliceValidatorElement, string, *sliceValidatorElement]:
-		return validator.ErrOnNil()
+		return validator.NotNil()
 	case ValuesAnyVldr:
-		return validator.ErrOnNil()
+		return validator.NotNil()
 	default:
 		return nil
 	}
 }
 
-// errOnNilSelfer is a Validator whose ErrOnNilSelf() returns its own type--setters return copies
-type errOnNilSelfer[V Validator] interface {
+// notNilSelfer is a Validator whose NotNilSelf() returns its own type--setters return copies
+type notNilSelfer[V Validator] interface {
 	Validator
-	ErrOnNilSelf() V
+	NotNilSelf() V
 }
 
-// testErrOnNilSelf asserts nil values are skipped by default, and error with the ErrOnNilSelf()
+// testNotNilSelf asserts nil values are skipped by default, and error with the NotNilSelf()
 // variant--whose setter returns a copy, leaving the validator unchanged
-func testErrOnNilSelf(t *testing.T, validator any) {
+func testNotNilSelf(t *testing.T, validator any) {
 	require := require.New(t)
 
 	v, ok := validator.(Validator)
 	require.True(ok)
 	require.Nil(v.ValidateAny(nil))
 
-	// ErrOnNilSelf() returns the validator's own type--setters return copies
-	method := reflect.ValueOf(v).MethodByName("ErrOnNilSelf")
+	// NotNilSelf() returns the validator's own type--setters return copies
+	method := reflect.ValueOf(v).MethodByName("NotNilSelf")
 	require.True(method.IsValid())
-	errOnNilSelfValidator, ok := reflect.TypeAssert[Validator](method.Call(nil)[0])
+	notNilSelfValidator, ok := reflect.TypeAssert[Validator](method.Call(nil)[0])
 	require.True(ok)
-	require.Equal(ErrNilPointer(), errOnNilSelfValidator.ValidateAny(nil))
+	require.Equal(ErrNilPointer(), notNilSelfValidator.ValidateAny(nil))
 
 	// the setter returns a copy--the unset validator still skips
 	require.Nil(v.ValidateAny(nil))

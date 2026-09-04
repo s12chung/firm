@@ -51,8 +51,8 @@ func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if definition.errOnNilSelf {
-		v = v.ErrOnNilSelf()
+	if definition.notNilSelf {
+		v = v.NotNilSelf()
 	}
 	if err := checkRecursion(r, typ, v.rules); err != nil {
 		return nil, err
@@ -63,15 +63,15 @@ func (r *Registry) toValidator(definition *Definition) (*ValueAnyVldr, error) {
 // mergedRules returns the Definition's self rules, with the fields validator appended to it
 func (r *Registry) mergedRules(definition *Definition) ([]Rule, error) {
 	selfRules := definition.SelfRules()
-	if len(definition.ruleMap) == 0 && definition.errOnNilFields == nil {
+	if len(definition.ruleMap) == 0 && definition.notNilFields == nil {
 		return selfRules, nil
 	}
 	fieldsV, err := FieldsAnyWithErr(definition.typ, definition.RuleMap())
 	if err != nil {
 		return nil, err
 	}
-	if definition.errOnNilFields != nil {
-		fieldsV, err = fieldsV.ErrOnNilWithErr(definition.errOnNilFields...)
+	if definition.notNilFields != nil {
+		fieldsV, err = fieldsV.NotNilWithErr(definition.notNilFields...)
 		if err != nil {
 			return nil, err
 		}

@@ -1055,7 +1055,7 @@ func TestFieldsAnyVldr_ValidateAll(t *testing.T) {
 	validator := testRegistry.Validator(reflect.TypeFor[parent]())
 	valueAnyV, ok := validator.(*ValueAnyVldr)
 	require.True(t, ok)
-	errOnNilSelfValidator := valueAnyV.ErrOnNilSelf()
+	notNilSelfValidator := valueAnyV.NotNilSelf()
 
 	tcs := []struct {
 		name   string
@@ -1069,9 +1069,9 @@ func TestFieldsAnyVldr_ValidateAll(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.result, validator.ValidateAny(tc.data))
-			// skipped nil values error with the ErrOnNilSelf() variant
+			// skipped nil values error with the NotNilSelf() variant
 			if tc.result == nil {
-				require.Equal(t, ErrNilPointer(), errOnNilSelfValidator.ValidateAny(tc.data))
+				require.Equal(t, ErrNilPointer(), notNilSelfValidator.ValidateAny(tc.data))
 			}
 		})
 	}
@@ -1099,11 +1099,11 @@ func TestFieldsAnyVldr_NilEmbeddedPointerField(t *testing.T) {
 	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
 	require.Nil(validator.ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
 
-	// ErrOnNil flags the nil Validates field pointer, merging a Nil error
+	// NotNil flags the nil Validates field pointer, merging a Nil error
 	expected := ErrorMap{}
 	expected.Merge("Validates", ErrNilPointer())
-	require.Equal(expected, validator.ErrOnNil("Validates").ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
-	require.Nil(validator.ErrOnNil("Validates").ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
+	require.Equal(expected, validator.NotNil("Validates").ValidateValue(reflect.ValueOf(embeddedPtFields{Child: nil, Str: "ok"})))
+	require.Nil(validator.NotNil("Validates").ValidateValue(reflect.ValueOf(embeddedPtFields{Child: &Child{Validates: "ok"}, Str: "ok"})))
 }
 
 func TestFieldsAnyVldr_TypeCheck(t *testing.T) {
@@ -1137,68 +1137,68 @@ type embeddedPtFields struct {
 	Str string
 }
 
-type errOnNilStruct struct {
+type notNilStruct struct {
 	Str string
 	Pt  *Child
 }
 
-func TestFieldsVldr_ErrOnNil(t *testing.T) {
-	newValidator := func() FieldsVldr[errOnNilStruct] {
-		return Fields[errOnNilStruct](RuleMap{
+func TestFieldsVldr_NotNil(t *testing.T) {
+	newValidator := func() FieldsVldr[notNilStruct] {
+		return Fields[notNilStruct](RuleMap{
 			"Str": {presentRule{}},
 			"Pt":  {presentRule{}},
 		})
 	}
-	nilPt := errOnNilStruct{Str: "ok"}
+	nilPt := notNilStruct{Str: "ok"}
 
 	t.Run("default_skips_nil", func(t *testing.T) {
 		require.Nil(t, newValidator().Validate(nilPt))
 	})
 	t.Run("named_fields", func(t *testing.T) {
 		expected := ErrorMap{}
-		expected.Merge("firm.errOnNilStruct.Pt", ErrNilPointer())
-		require.Equal(t, expected, newValidator().ErrOnNil("Pt").Validate(nilPt))
+		expected.Merge("firm.notNilStruct.Pt", ErrNilPointer())
+		require.Equal(t, expected, newValidator().NotNil("Pt").Validate(nilPt))
 	})
 	t.Run("no_fields_panics", func(t *testing.T) {
-		_, err := newValidator().ErrOnNilWithErr()
-		require.EqualError(t, err, "ErrOnNil: no fields given")
-		require.Panics(t, func() { newValidator().ErrOnNil() })
+		_, err := newValidator().NotNilWithErr()
+		require.EqualError(t, err, "NotNil: no fields given")
+		require.Panics(t, func() { newValidator().NotNil() })
 	})
 	t.Run("unknown_field_panics", func(t *testing.T) {
-		require.Panics(t, func() { newValidator().ErrOnNil("Nope") })
+		require.Panics(t, func() { newValidator().NotNil("Nope") })
 	})
 	t.Run("unexported_field_panics", func(t *testing.T) {
 		require.Panics(t, func() {
-			Fields[Child](RuleMap{"Validates": {presentRule{}}}).ErrOnNil("private")
+			Fields[Child](RuleMap{"Validates": {presentRule{}}}).NotNil("private")
 		})
 	})
 	t.Run("field_not_in_rule_map_is_added_with_no_rules", func(t *testing.T) {
 		// the nil Pt is nil-checked only, while the presentRule on Pt is absent
-		validator := Fields[errOnNilStruct](RuleMap{"Str": {presentRule{}}})
+		validator := Fields[notNilStruct](RuleMap{"Str": {presentRule{}}})
 		expected := ErrorMap{}
-		expected.Merge("firm.errOnNilStruct.Pt", ErrNilPointer())
-		require.Equal(t, expected, validator.ErrOnNil("Pt").Validate(nilPt))
-		require.Nil(t, validator.ErrOnNil("Pt").Validate(errOnNilStruct{Str: "ok", Pt: &Child{}}))
-		require.Len(t, validator.RuleMap(), 1) // ErrOnNil() does not leak the added field into the original
+		expected.Merge("firm.notNilStruct.Pt", ErrNilPointer())
+		require.Equal(t, expected, validator.NotNil("Pt").Validate(nilPt))
+		require.Nil(t, validator.NotNil("Pt").Validate(notNilStruct{Str: "ok", Pt: &Child{}}))
+		require.Len(t, validator.RuleMap(), 1) // NotNil() does not leak the added field into the original
 	})
 	t.Run("called_twice_panics", func(t *testing.T) {
-		_, err := newValidator().ErrOnNil("Pt").ErrOnNilWithErr("Str")
-		require.EqualError(t, err, "ErrOnNil: called twice in type: firm.errOnNilStruct")
-		require.Panics(t, func() { newValidator().ErrOnNil("Pt").ErrOnNil("Str") })
+		_, err := newValidator().NotNil("Pt").NotNilWithErr("Str")
+		require.EqualError(t, err, "NotNil: called twice in type: firm.notNilStruct")
+		require.Panics(t, func() { newValidator().NotNil("Pt").NotNil("Str") })
 	})
 	t.Run("setter_returns_a_copy", func(t *testing.T) {
 		validator := newValidator()
-		_ = validator.ErrOnNil("Pt")
+		_ = validator.NotNil("Pt")
 		require.Nil(t, validator.Validate(nilPt))
 	})
 	t.Run("non_nil_pointer_still_validates", func(t *testing.T) {
-		errorKey := ErrorKey("firm.errOnNilStruct.Pt." + presentRuleKey)
+		errorKey := ErrorKey("firm.notNilStruct.Pt." + presentRuleKey)
 		expected := ErrorMap{errorKey: *presentRuleError(errorKey)}
-		require.Equal(t, expected, newValidator().ErrOnNil("Pt").Validate(errOnNilStruct{Str: "ok", Pt: &Child{}}))
+		require.Equal(t, expected, newValidator().NotNil("Pt").Validate(notNilStruct{Str: "ok", Pt: &Child{}}))
 	})
 }
 
-func TestValidator_ErrOnNilSelf(t *testing.T) {
+func TestValidator_NotNilSelf(t *testing.T) {
 	valueAnyV, err := ValueAnyWithErr(reflect.TypeFor[Child]())
 	require.NoError(t, err)
 
@@ -1208,7 +1208,7 @@ func TestValidator_ErrOnNilSelf(t *testing.T) {
 	}{
 		{name: "ValueAnyVldr", newVldr: func() any { return valueAnyV }},
 		{name: "FieldsVldr", newVldr: func() any {
-			return Fields[errOnNilStruct](RuleMap{"Str": {presentRule{}}})
+			return Fields[notNilStruct](RuleMap{"Str": {presentRule{}}})
 		}},
 		{name: "ElemsVldr", newVldr: func() any { return Elems[[]*Child](presentRule{}) }},
 		{name: "KeysVldr", newVldr: func() any { return Keys[map[*int]Child](presentRule{}) }},
@@ -1218,17 +1218,17 @@ func TestValidator_ErrOnNilSelf(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			testErrOnNilSelf(t, tc.newVldr())
+			testNotNilSelf(t, tc.newVldr())
 		})
 	}
 }
 
-func TestValidatorTyped_ErrOnNilSelf(t *testing.T) {
+func TestValidatorTyped_NotNilSelf(t *testing.T) {
 	// typed Validate() follows the same flag
-	newPtrFields := func() FieldsVldr[*errOnNilStruct] { return Fields[*errOnNilStruct](RuleMap{"Str": {presentRule{}}}) }
-	var nilStructPtr *errOnNilStruct
+	newPtrFields := func() FieldsVldr[*notNilStruct] { return Fields[*notNilStruct](RuleMap{"Str": {presentRule{}}}) }
+	var nilStructPtr *notNilStruct
 	require.Nil(t, newPtrFields().Validate(nilStructPtr))
-	require.Equal(t, ErrNilPointer(), newPtrFields().ErrOnNilSelf().Validate(nilStructPtr))
+	require.Equal(t, ErrNilPointer(), newPtrFields().NotNilSelf().Validate(nilStructPtr))
 }
 
 type sliceValidatorElement struct {
@@ -1273,7 +1273,7 @@ var sliceValidatorTestCases = []sliceValidatorTestCase{
 		return []*sliceValidatorElement{{Int: 1}, {Int: 2}}
 	}},
 	{name: "Ptr_Element_nil", validator: ptrElemsValidator,
-		// the nil element is skipped by default, and errors with the ErrOnNil() variant
+		// the nil element is skipped by default, and errors with the NotNil() variant
 		nilKeys: []string{"[0]"}, f: func() any {
 			return []*sliceValidatorElement{nil}
 		}},
@@ -1316,7 +1316,7 @@ func TestElemsAny(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, ElemsAny(typ, presentRule{}))
 	require.Equal(t, expected, ElemsAny(reflect.TypeFor[*[]Child](), presentRule{}))
-	require.Equal(t, expected.ErrOnNil(), ElemsAny(typ, presentRule{}).ErrOnNil())
+	require.Equal(t, expected.NotNil(), ElemsAny(typ, presentRule{}).NotNil())
 
 	require.Panics(t, func() { ElemsAny(reflect.TypeFor[Child](), presentRule{}) })
 }
@@ -1379,7 +1379,7 @@ func TestElemsVldr_Validate(t *testing.T) {
 
 func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 	validator := elemsValidator
-	errOnNilSelfValidator := validator.ErrOnNilSelf()
+	notNilSelfValidator := validator.NotNilSelf()
 
 	tcs := []struct {
 		name   string
@@ -1393,9 +1393,9 @@ func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.result, validator.ValidateAny(tc.data))
-			// skipped nil values error with the ErrOnNilSelf() variant
+			// skipped nil values error with the NotNilSelf() variant
 			if tc.result == nil {
-				require.Equal(t, ErrNilPointer(), errOnNilSelfValidator.ValidateAny(tc.data))
+				require.Equal(t, ErrNilPointer(), notNilSelfValidator.ValidateAny(tc.data))
 			}
 		})
 	}
@@ -1416,8 +1416,8 @@ func TestElemsAnyVldr_ValidateAll(t *testing.T) {
 					joinAll(tc.errorKeys, presentRuleKey), nilKeySuffixes)
 			}
 			run(validator, nil) // nil pointers are skipped by default
-			if errOnNilV := errOnNilValidator(validator); errOnNilV != nil {
-				run(errOnNilV, joinAll(tc.nilKeys, nilKey))
+			if notNilV := notNilValidator(validator); notNilV != nil {
+				run(notNilV, joinAll(tc.nilKeys, nilKey))
 			}
 		})
 	}
@@ -1547,9 +1547,9 @@ func TestValueAnyVldr_ValidateAll(t *testing.T) {
 				result = typeCheckErrorResult(validator, tc.data)
 			}
 			require.Equal(result, validator.ValidateAny(tc.data))
-			// skipped nil values error with the ErrOnNilSelf() variant
+			// skipped nil values error with the NotNilSelf() variant
 			if tc.result == nil && !tc.typeCheckError {
-				require.Equal(ErrNilPointer(), validator.ErrOnNilSelf().ValidateAny(tc.data))
+				require.Equal(ErrNilPointer(), validator.NotNilSelf().ValidateAny(tc.data))
 			}
 		})
 	}
@@ -1620,9 +1620,9 @@ func TestRuleVldr_ValidateAll(t *testing.T) {
 
 			validator := RuleVldr{Rule: tc.rule}
 			require.Equal(t, result, validator.ValidateAny(tc.data))
-			// skipped nil values error with the ErrOnNilSelf() variant
+			// skipped nil values error with the NotNilSelf() variant
 			if tc.result == nil && !tc.typeCheckError {
-				require.Equal(t, ErrNilPointer(), validator.ErrOnNilSelf().ValidateAny(tc.data))
+				require.Equal(t, ErrNilPointer(), validator.NotNilSelf().ValidateAny(tc.data))
 			}
 		})
 	}

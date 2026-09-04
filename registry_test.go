@@ -174,8 +174,8 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			definition: NewDefinition[registryParent]().ValidatesSelf(presentRule{}),
 		},
 		{
-			name:       "typed_nil_err_on_nil_self",
-			definition: NewDefinition[registryParent]().ValidatesSelf(presentRule{}).ErrOnNilSelf(),
+			name:       "typed_nil_not_nil_self",
+			definition: NewDefinition[registryParent]().ValidatesSelf(presentRule{}).NotNilSelf(),
 		},
 	}
 	for _, tc := range tcs {
@@ -193,11 +193,11 @@ func TestRegistry_ValidateAll(t *testing.T) {
 			}
 			if tc.name == "typed_nil" {
 				var data *registryParent
-				// the typed nil is skipped by default, and errors with the ErrOnNilSelf() variant
+				// the typed nil is skipped by default, and errors with the NotNilSelf() variant
 				require.Nil(registry.ValidateAny(data))
 				return
 			}
-			if tc.name == "typed_nil_err_on_nil_self" {
+			if tc.name == "typed_nil_not_nil_self" {
 				var data *registryParent
 				require.Equal(ErrNilPointer(), registry.ValidateAny(data))
 				return
@@ -326,43 +326,43 @@ func TestMultiPtr_ValidateAll(t *testing.T) {
 	}
 }
 
-type registryErrOnNil struct {
+type registryNotNil struct {
 	Str string
 	Pt  *registryChild
 }
 
 // nolint:funlen // a bunch of test cases
-func TestRegistry_ErrOnNil(t *testing.T) {
+func TestRegistry_NotNil(t *testing.T) {
 	expected := ErrorMap{}
-	expected.Merge("firm.registryErrOnNil.Pt", ErrNilPointer())
+	expected.Merge("firm.registryNotNil.Pt", ErrNilPointer())
 
 	tcs := []struct {
 		name       string
 		definition *Definition
-		data       registryErrOnNil
+		data       registryNotNil
 	}{
 		{
-			// ErrOnNil() before Validates()--ordering does not matter
+			// NotNil() before Validates()--ordering does not matter
 			name: "before_validates",
-			definition: NewDefinition[registryErrOnNil]().ErrOnNil("Pt").Validates(RuleMap{
+			definition: NewDefinition[registryNotNil]().NotNil("Pt").Validates(RuleMap{
 				"Str": {presentRule{}},
 				"Pt":  {},
 			}),
-			data: registryErrOnNil{Str: "ok"},
+			data: registryNotNil{Str: "ok"},
 		},
 		{
-			// without a RuleMap, the ErrOnNil fields are added with no rules
+			// without a RuleMap, the NotNil fields are added with no rules
 			name:       "no_rule_map",
-			definition: NewDefinition[registryErrOnNil]().ErrOnNil("Pt"),
-			data:       registryErrOnNil{Str: "not_ok"},
+			definition: NewDefinition[registryNotNil]().NotNil("Pt"),
+			data:       registryNotNil{Str: "not_ok"},
 		},
 		{
-			// ErrOnNil fields missing from the RuleMap are added with no rules
+			// NotNil fields missing from the RuleMap are added with no rules
 			name: "missing_from_rule_map",
-			definition: NewDefinition[registryErrOnNil]().Validates(RuleMap{
+			definition: NewDefinition[registryNotNil]().Validates(RuleMap{
 				"Str": {presentRule{}},
-			}).ErrOnNil("Pt"),
-			data: registryErrOnNil{Str: "not_ok"},
+			}).NotNil("Pt"),
+			data: registryNotNil{Str: "not_ok"},
 		},
 	}
 	for _, tc := range tcs {
@@ -372,7 +372,7 @@ func TestRegistry_ErrOnNil(t *testing.T) {
 			registry := &Registry{}
 			require.NoError(registry.RegisterType(tc.definition))
 			require.Equal(expected, registry.ValidateAny(tc.data))
-			require.Nil(registry.ValidateAny(registryErrOnNil{Str: "ok", Pt: &registryChild{}}))
+			require.Nil(registry.ValidateAny(registryNotNil{Str: "ok", Pt: &registryChild{}}))
 		})
 	}
 	// unknown or unexported fields error at RegisterType()
@@ -383,15 +383,15 @@ func TestRegistry_ErrOnNil(t *testing.T) {
 	}{
 		{
 			name: "unknown_field",
-			definition: NewDefinition[registryErrOnNil]().Validates(RuleMap{
+			definition: NewDefinition[registryNotNil]().Validates(RuleMap{
 				"Str": {presentRule{}},
-			}).ErrOnNil("Nope"),
-			err: "RegisterType() with type firm.registryErrOnNil: ErrOnNil: field, Nope, not found in type: firm.registryErrOnNil",
+			}).NotNil("Nope"),
+			err: "RegisterType() with type firm.registryNotNil: NotNil: field, Nope, not found in type: firm.registryNotNil",
 		},
 		{
 			name:       "unexported_field",
-			definition: NewDefinition[Child]().ErrOnNil("private"),
-			err:        "RegisterType() with type firm.Child: ErrOnNil: field, private, is unexported in type: firm.Child",
+			definition: NewDefinition[Child]().NotNil("private"),
+			err:        "RegisterType() with type firm.Child: NotNil: field, private, is unexported in type: firm.Child",
 		},
 	}
 	for _, tc := range errTcs {

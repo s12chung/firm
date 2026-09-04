@@ -52,28 +52,28 @@ func TestDefinition_Validates(t *testing.T) {
 	require.Panics(func() { NewDefinition[int]().Validates(RuleMap{"Str": {}}) })
 }
 
-func TestDefinition_ErrOnNil(t *testing.T) {
+func TestDefinition_NotNil(t *testing.T) {
 	require := require.New(t)
 
-	require.Equal([]string{"Validates"}, NewDefinition[Child]().ErrOnNil("Validates").errOnNilFields)
+	require.Equal([]string{"Validates"}, NewDefinition[Child]().NotNil("Validates").notNilFields)
 
 	// no fields error out
-	require.Panics(func() { NewDefinition[Child]().ErrOnNil() })
+	require.Panics(func() { NewDefinition[Child]().NotNil() })
 	// an empty call still counts as called
-	require.Panics(func() { NewDefinition[Child]().ErrOnNil("Validates").ErrOnNil() })
+	require.Panics(func() { NewDefinition[Child]().NotNil("Validates").NotNil() })
 	// non-structs have no fields
-	require.Panics(func() { NewDefinition[int]().ErrOnNil() })
+	require.Panics(func() { NewDefinition[int]().NotNil() })
 }
 
-func TestDefinition_ErrOnNilSelf(t *testing.T) {
+func TestDefinition_NotNilSelf(t *testing.T) {
 	require := require.New(t)
 
-	require.True(NewDefinition[Child]().ErrOnNilSelf().errOnNilSelf)
+	require.True(NewDefinition[Child]().NotNilSelf().notNilSelf)
 
 	// called twice
-	require.Panics(func() { NewDefinition[Child]().ErrOnNilSelf().ErrOnNilSelf() })
+	require.Panics(func() { NewDefinition[Child]().NotNilSelf().NotNilSelf() })
 	// the self value applies to non-structs too
-	require.NotPanics(func() { NewDefinition[int]().ErrOnNilSelf() })
+	require.NotPanics(func() { NewDefinition[int]().NotNilSelf() })
 }
 
 func TestDefinition_GettersReturnCopies(t *testing.T) {

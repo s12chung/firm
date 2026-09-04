@@ -21,7 +21,7 @@ type Query struct {
 func init() {
 	firm.MustRegisterType(firm.NewDefinition[Query]().Validates(firm.RuleMap{
 		"Str": {rule.Present{}},
-	}).ErrOnNil("POS"))
+	}).NotNil("POS"))
 }
 
 func validateQuery(query Query) error {
@@ -62,7 +62,7 @@ func init() {
 	// For the `Query` struct
 	firm.MustRegisterType(firm.NewDefinition[Query]().Validates(firm.RuleMap{
 		"Str": {rule.Present{}},
-	}).ErrOnNil("POS")) // nil is skipped otherwise
+	}).NotNil("POS")) // nil is skipped otherwise
 }
 
 func readConfig(body []byte) (Config, error) {
@@ -128,7 +128,7 @@ Validation rules, expects non-pointers only ("safe values")
 
 See [Types, Pointers, and Safe Values](#types-pointers-and-safe-values) for details on "safe values".
 
-`ValidateAny(data any) ErrorMap` is the **go-to validation function**, which is implemented on `firm.Registry` and `firm.Validator`. Accepts anything--values or pointers, including `nil` pointers. By default, `nil` pointers are skipped unless `ErrOnNil()/ErrOnNilSelf()` is called. Also handles invalid types. All errors are from explicit validation declarations, except for type checking:
+`ValidateAny(data any) ErrorMap` is the **go-to validation function**, which is implemented on `firm.Registry` and `firm.Validator`. Accepts anything--values or pointers, including `nil` pointers. By default, `nil` pointers are skipped unless `NotNil()/NotNilSelf()` is called. Also handles invalid types. All errors are from explicit validation declarations, except for type checking:
 
 - `firm.Registry` unregistered types return "not found in Registry" error
 - `firm.Validator` is an interface, built-in validators will return "is not matching type" error
@@ -314,29 +314,29 @@ The `firm` package provides:
 
 All constructors in the table above `panic()` when there is an error and have a -`WithErr` suffixed version. Naming is intended to be cleanly declarative.
 
-By default, validators can recursively traverse through `Fields`, `Elems`, `Keys`, and `Values` that may contain pointers. All pointers are indirected to ensure "safe values" (see [Types, Pointers, and Safe Values](#types-pointers-and-safe-values)). Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. Both forms will apply the same rules to the same `Child` values. And by default, `nil` pointers are skipped. To provide errors on `nil` pointers instead, call `ErrOnNil()`.
+By default, validators can recursively traverse through `Fields`, `Elems`, `Keys`, and `Values` that may contain pointers. All pointers are indirected to ensure "safe values" (see [Types, Pointers, and Safe Values](#types-pointers-and-safe-values)). Given `[]Child` or `*[]**Child`, validators will traverse the slice and receive the same `Child` value. Both forms will apply the same rules to the same `Child` values. And by default, `nil` pointers are skipped. To provide errors on `nil` pointers instead, call `NotNil()`.
 
 ```go
 // For Elems (slice or array), require non-nil `Queries` elements
-firm.Elems[[]*Query](firm.Backed()).ErrOnNil()
+firm.Elems[[]*Query](firm.Backed()).NotNil()
 
 // For Fields (struct), require non-nil `Child`
-firm.Fields[Parent](firm.RuleMap{"Child": {firm.Backed()}}).ErrOnNil("Child")
+firm.Fields[Parent](firm.RuleMap{"Child": {firm.Backed()}}).NotNil("Child")
 
 // Same as `firm.Fields`, but via a Definition
 firm.NewDefinition[Parent]().Validates(firm.RuleMap{
 	"Child": {firm.Backed()},
-}).ErrOnNil("Child")
+}).NotNil("Child")
 ```
 
-The value arg of `ValidateAny()/Validate()` is skipped when `nil` too. To error instead, call `ErrOnNilSelf()`.
+The value arg of `ValidateAny()/Validate()` is skipped when `nil` too. To error instead, call `NotNilSelf()`.
 
 ```go
 // Require non-nil, when calling `ValidateAny()/Validate()` with a `nil` `*Config`
-firm.Fields[Config](firm.RuleMap{"Queries": {firm.Elems[[]Query](firm.Backed())}}).ErrOnNilSelf()
+firm.Fields[Config](firm.RuleMap{"Queries": {firm.Elems[[]Query](firm.Backed())}}).NotNilSelf()
 
 // Same, but via a Definition--errors when `firm.Registry.ValidateAny()` receives a `nil` `*Config`
-firm.NewDefinition[Config]().ValidatesSelf(rule.Present{}).ErrOnNilSelf()
+firm.NewDefinition[Config]().ValidatesSelf(rule.Present{}).NotNilSelf()
 ```
 
 Via generics, `firm.ValidatorTyped[T any]` can call `Validate()`, which enforces type safety. Each of these validators wrap around a `*AnyVldr`. `firm.ValidatorTyped[T any]` can use any `firm.Rule`--not just typed ones!
@@ -482,7 +482,7 @@ Validators must uphold two caller contracts--**enforced by the caller** to simpl
 
 **Type Coherence**: On validation creation (`RegisterType()` or any validator constructor), `firm.Rule.TypeCheck()` is called to ensure type coherence with the validator
 
-**Safe Values**: Safe values are defined as a non-pointer valid `reflect.Value`. Only `ValidateAny()/Validate()` may receive an unsafe value. Pointers are indirected and `nil` pointers at these entry points are skipped by default. Built-in validators can call `ErrOnNilSelf()` to return a `firm.ErrNilPointer()` instead. `ValidateAny()/Validate()` must also ensure that only safe values are passed down to:
+**Safe Values**: Safe values are defined as a non-pointer valid `reflect.Value`. Only `ValidateAny()/Validate()` may receive an unsafe value. Pointers are indirected and `nil` pointers at these entry points are skipped by default. Built-in validators can call `NotNilSelf()` to return a `firm.ErrNilPointer()` instead. `ValidateAny()/Validate()` must also ensure that only safe values are passed down to:
 
 - `firm.Rule`
 - `ValidateMerge()`
@@ -490,7 +490,7 @@ Validators must uphold two caller contracts--**enforced by the caller** to simpl
 `ValidateMerge()` is the only place within `firm` that contains unsafe values, as it may need to recurse. When doing so, `ValidateMerge()` converts unsafe values to safe values by:
 
 - Indirecting the pointers
-- Skipping `nil` pointers by default. Built-in validators can call `ErrOnNil()` to merge a `firm.ErrNilPointer()` before skipping.
+- Skipping `nil` pointers by default. Built-in validators can call `NotNil()` to merge a `firm.ErrNilPointer()` before skipping.
 
 The safe values flow looks like this:
 
@@ -500,11 +500,11 @@ The safe values flow looks like this:
 
 Implement your own `firm.Validator` with these helpers:
 
-- `firm.ImplValidateAny(v, errOnNilSelf, data)` - implementation calls the validator's `TypeCheck()`, indirects pointers, and skips `nil` pointers unless `errOnNilSelf` is set--then returns `firm.ErrNilPointer()`
+- `firm.ImplValidateAny(v, notNilSelf, data)` - implementation calls the validator's `TypeCheck()`, indirects pointers, and skips `nil` pointers unless `notNilSelf` is set--then returns `firm.ErrNilPointer()`
 - `firm.ImplValidateValue(v, value)` - implementation assumes `TypeCheck` is called. Panics on a `nil` pointer with `firm.MustValidValue()`.
 - `firm.ImplValidateMerge(value, key, errorMap, rules)` - implementation assumes `TypeCheck` is called, as it iterates `rules` and merges them into the errorMap. Panics on a `nil` pointer with `firm.MustValidValue()`.
-- `firm.ImplValidateMergeIndirected(value, key, errorMap, rules, errOnNil)` - calls `firm.ImplValidateMerge()` after indirecting the value. If the indirected value is a `nil` pointer, `firm.ErrNilPointer()` is merged into `errorMap` when `errOnNil` is set, and skipped otherwise. In both cases, the call to `firm.ImplValidateMerge()` is skipped.
-- `firm.ImplValidate(v, errOnNilSelf, data)` - implementation does no type checking on runtime because `Validate()` is a typed function (often with generics). Like `firm.ImplValidateAny()`, `nil` pointers are skipped unless `errOnNilSelf` is set
+- `firm.ImplValidateMergeIndirected(value, key, errorMap, rules, notNil)` - calls `firm.ImplValidateMerge()` after indirecting the value. If the indirected value is a `nil` pointer, `firm.ErrNilPointer()` is merged into `errorMap` when `notNil` is set, and skipped otherwise. In both cases, the call to `firm.ImplValidateMerge()` is skipped.
+- `firm.ImplValidate(v, notNilSelf, data)` - implementation does no type checking on runtime because `Validate()` is a typed function (often with generics). Like `firm.ImplValidateAny()`, `nil` pointers are skipped unless `notNilSelf` is set
 - `firm.MustValidValue(value)` - A helper function for nicer panic messages for `nil` pointers (`value` is not valid) in `ValidateMerge()`.
 - `firm.TypeCheckAndBack(typ, rules, errContext)` - calls `firm.Rule.TypeCheck()` of each rule with the indirected `typ`, wrapping any error with `errContext` when set and handles the [Registry.Backed() gotcha](#registries)
 

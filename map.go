@@ -40,17 +40,17 @@ func KeysAnyWithErr(typ reflect.Type, keyRules ...Rule) (KeysAnyVldr, error) {
 type KeysVldr[T map[K]V, K comparable, V any] struct{ KeysAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s KeysVldr[T, K, V]) Validate(data T) ErrorMap { return ImplValidate(s, s.errOnNilSelf, data) }
+func (s KeysVldr[T, K, V]) Validate(data T) ErrorMap { return ImplValidate(s, s.notNilSelf, data) }
 
-// ErrOnNil is KeysAnyVldr.ErrOnNil(), but typed
-func (s KeysVldr[T, K, V]) ErrOnNil() KeysVldr[T, K, V] {
-	s.KeysAnyVldr = s.KeysAnyVldr.ErrOnNil()
+// NotNil is KeysAnyVldr.NotNil(), but typed
+func (s KeysVldr[T, K, V]) NotNil() KeysVldr[T, K, V] {
+	s.KeysAnyVldr = s.KeysAnyVldr.NotNil()
 	return s
 }
 
-// ErrOnNilSelf is KeysAnyVldr.ErrOnNilSelf(), but typed
-func (s KeysVldr[T, K, V]) ErrOnNilSelf() KeysVldr[T, K, V] {
-	s.KeysAnyVldr = s.KeysAnyVldr.ErrOnNilSelf()
+// NotNilSelf is KeysAnyVldr.NotNilSelf(), but typed
+func (s KeysVldr[T, K, V]) NotNilSelf() KeysVldr[T, K, V] {
+	s.KeysAnyVldr = s.KeysAnyVldr.NotNilSelf()
 	return s
 }
 
@@ -58,17 +58,17 @@ func (s KeysVldr[T, K, V]) ErrOnNilSelf() KeysVldr[T, K, V] {
 type KeysAnyVldr struct {
 	typ      reflect.Type
 	keyRules []Rule
-	// errOnNil flags to merge ErrNilPointer(), when a key's value is a nil pointer
-	errOnNil bool
-	// errOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
-	errOnNilSelf bool
+	// notNil flags to merge ErrNilPointer(), when a key's value is a nil pointer
+	notNil bool
+	// notNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
+	notNilSelf bool
 }
 
 // Type returns the Type the Validator handles
 func (s KeysAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
-func (s KeysAnyVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(s, s.errOnNilSelf, data) }
+func (s KeysAnyVldr) ValidateAny(data any) ErrorMap { return ImplValidateAny(s, s.notNilSelf, data) }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
 func (s KeysAnyVldr) ValidateValue(value reflect.Value) ErrorMap { return ImplValidateValue(s, value) }
@@ -78,15 +78,15 @@ func (s KeysAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap Err
 	MustValidValue(value)
 	for iter := value.MapRange(); iter.Next(); {
 		keyValue := indirect(iter.Key())
-		ImplValidateMergeIndirected(keyValue, joinKeys(key, mapErrorKey(keyValue)), errorMap, s.keyRules, s.errOnNil)
+		ImplValidateMergeIndirected(keyValue, joinKeys(key, mapErrorKey(keyValue)), errorMap, s.keyRules, s.notNil)
 	}
 }
 
-// ErrOnNil flags to merge ErrNilPointer(), when a key's value is a nil pointer, instead of skipping it
-func (s KeysAnyVldr) ErrOnNil() KeysAnyVldr { s.errOnNil = true; return s }
+// NotNil flags to merge ErrNilPointer(), when a key's value is a nil pointer, instead of skipping it
+func (s KeysAnyVldr) NotNil() KeysAnyVldr { s.notNil = true; return s }
 
-// ErrOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
-func (s KeysAnyVldr) ErrOnNilSelf() KeysAnyVldr { s.errOnNilSelf = true; return s }
+// NotNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
+func (s KeysAnyVldr) NotNilSelf() KeysAnyVldr { s.notNilSelf = true; return s }
 
 // TypeCheck checks whether the type is valid for the Rule
 func (s KeysAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
@@ -134,17 +134,17 @@ func ValuesAnyWithErr(typ reflect.Type, valueRules ...Rule) (ValuesAnyVldr, erro
 type ValuesVldr[T map[K]V, K comparable, V any] struct{ ValuesAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
-func (s ValuesVldr[T, K, V]) Validate(data T) ErrorMap { return ImplValidate(s, s.errOnNilSelf, data) }
+func (s ValuesVldr[T, K, V]) Validate(data T) ErrorMap { return ImplValidate(s, s.notNilSelf, data) }
 
-// ErrOnNil is ValuesAnyVldr.ErrOnNil(), but typed
-func (s ValuesVldr[T, K, V]) ErrOnNil() ValuesVldr[T, K, V] {
-	s.ValuesAnyVldr = s.ValuesAnyVldr.ErrOnNil()
+// NotNil is ValuesAnyVldr.NotNil(), but typed
+func (s ValuesVldr[T, K, V]) NotNil() ValuesVldr[T, K, V] {
+	s.ValuesAnyVldr = s.ValuesAnyVldr.NotNil()
 	return s
 }
 
-// ErrOnNilSelf is ValuesAnyVldr.ErrOnNilSelf(), but typed
-func (s ValuesVldr[T, K, V]) ErrOnNilSelf() ValuesVldr[T, K, V] {
-	s.ValuesAnyVldr = s.ValuesAnyVldr.ErrOnNilSelf()
+// NotNilSelf is ValuesAnyVldr.NotNilSelf(), but typed
+func (s ValuesVldr[T, K, V]) NotNilSelf() ValuesVldr[T, K, V] {
+	s.ValuesAnyVldr = s.ValuesAnyVldr.NotNilSelf()
 	return s
 }
 
@@ -152,10 +152,10 @@ func (s ValuesVldr[T, K, V]) ErrOnNilSelf() ValuesVldr[T, K, V] {
 type ValuesAnyVldr struct {
 	typ        reflect.Type
 	valueRules []Rule
-	// errOnNil flags to merge ErrNilPointer(), when a value's value is a nil pointer
-	errOnNil bool
-	// errOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
-	errOnNilSelf bool
+	// notNil flags to merge ErrNilPointer(), when a value's value is a nil pointer
+	notNil bool
+	// notNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
+	notNilSelf bool
 }
 
 // Type returns the Type the Validator handles
@@ -163,7 +163,7 @@ func (s ValuesAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
 func (s ValuesAnyVldr) ValidateAny(data any) ErrorMap {
-	return ImplValidateAny(s, s.errOnNilSelf, data)
+	return ImplValidateAny(s, s.notNilSelf, data)
 }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
@@ -176,15 +176,15 @@ func (s ValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMap E
 	MustValidValue(value)
 	for iter := value.MapRange(); iter.Next(); {
 		keyValue := indirect(iter.Key())
-		ImplValidateMergeIndirected(iter.Value(), joinKeys(key, mapErrorKey(keyValue)), errorMap, s.valueRules, s.errOnNil)
+		ImplValidateMergeIndirected(iter.Value(), joinKeys(key, mapErrorKey(keyValue)), errorMap, s.valueRules, s.notNil)
 	}
 }
 
-// ErrOnNil flags to merge ErrNilPointer(), when a value's value is a nil pointer, instead of skipping it
-func (s ValuesAnyVldr) ErrOnNil() ValuesAnyVldr { s.errOnNil = true; return s }
+// NotNil flags to merge ErrNilPointer(), when a value's value is a nil pointer, instead of skipping it
+func (s ValuesAnyVldr) NotNil() ValuesAnyVldr { s.notNil = true; return s }
 
-// ErrOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
-func (s ValuesAnyVldr) ErrOnNilSelf() ValuesAnyVldr { s.errOnNilSelf = true; return s }
+// NotNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
+func (s ValuesAnyVldr) NotNilSelf() ValuesAnyVldr { s.notNilSelf = true; return s }
 
 // TypeCheck checks whether the type is valid for the Rule
 func (s ValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
@@ -233,12 +233,12 @@ type KeyValuesVldr[T map[K]V, K comparable, V any] struct{ KeyValuesAnyVldr }
 
 // Validate is firm.Validator(), but with a typed arg, so no type checking is done on runtime
 func (s KeyValuesVldr[T, K, V]) Validate(data T) ErrorMap {
-	return ImplValidate(s, s.errOnNilSelf, data)
+	return ImplValidate(s, s.notNilSelf, data)
 }
 
-// ErrOnNilSelf is KeyValuesAnyVldr.ErrOnNilSelf(), but typed
-func (s KeyValuesVldr[T, K, V]) ErrOnNilSelf() KeyValuesVldr[T, K, V] {
-	s.KeyValuesAnyVldr = s.KeyValuesAnyVldr.ErrOnNilSelf()
+// NotNilSelf is KeyValuesAnyVldr.NotNilSelf(), but typed
+func (s KeyValuesVldr[T, K, V]) NotNilSelf() KeyValuesVldr[T, K, V] {
+	s.KeyValuesAnyVldr = s.KeyValuesAnyVldr.NotNilSelf()
 	return s
 }
 
@@ -246,8 +246,8 @@ func (s KeyValuesVldr[T, K, V]) ErrOnNilSelf() KeyValuesVldr[T, K, V] {
 type KeyValuesAnyVldr struct {
 	typ           reflect.Type
 	keyValueRules []Rule
-	// errOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
-	errOnNilSelf bool
+	// notNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer
+	notNilSelf bool
 }
 
 // Type returns the Type the Validator handles
@@ -255,7 +255,7 @@ func (s KeyValuesAnyVldr) Type() reflect.Type { return s.typ }
 
 // ValidateAny validates the data
 func (s KeyValuesAnyVldr) ValidateAny(data any) ErrorMap {
-	return ImplValidateAny(s, s.errOnNilSelf, data)
+	return ImplValidateAny(s, s.notNilSelf, data)
 }
 
 // ValidateValue validates the data value (assumes TypeCheck is called)
@@ -274,8 +274,8 @@ func (s KeyValuesAnyVldr) ValidateMerge(value reflect.Value, key string, errorMa
 	}
 }
 
-// ErrOnNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
-func (s KeyValuesAnyVldr) ErrOnNilSelf() KeyValuesAnyVldr { s.errOnNilSelf = true; return s }
+// NotNilSelf flags to merge ErrNilPointer(), when the value itself is a nil pointer, instead of skipping it
+func (s KeyValuesAnyVldr) NotNilSelf() KeyValuesAnyVldr { s.notNilSelf = true; return s }
 
 // TypeCheck checks whether the type is valid for the Rule
 func (s KeyValuesAnyVldr) TypeCheck(typ reflect.Type) *RuleTypeError {
