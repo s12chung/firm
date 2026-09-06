@@ -9,23 +9,23 @@ import (
 	"github.com/s12chung/firm"
 )
 
-func TestIncluded_ValidateAll(t *testing.T) {
+func TestOneOf_ValidateAll(t *testing.T) {
 	tcs := []struct {
-		name string
-		in   []string
+		name   string
+		values []string
 
 		data     string
 		hasError bool
 	}{
-		{name: "in_set", in: []string{"a", "b"}, data: "a"},
-		{name: "in_set_last", in: []string{"a", "b"}, data: "b"},
-		{name: "not_in_set", in: []string{"a", "b"}, data: "c", hasError: true},
-		{name: "empty_in", in: []string{}, data: "a", hasError: true},
-		{name: "nil_in", data: "a", hasError: true},
+		{name: "in_values", values: []string{"a", "b"}, data: "a"},
+		{name: "in_values_last", values: []string{"a", "b"}, data: "b"},
+		{name: "not_in_values", values: []string{"a", "b"}, data: "c", hasError: true},
+		{name: "empty_values", values: []string{}, data: "a", hasError: true},
+		{name: "nil_values", data: "a", hasError: true},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			rule := Included[string]{In: tc.in}
+			rule := OneOf[string]{Values: tc.values}
 			var expected firm.ErrorMap
 			if tc.hasError {
 				expected = rule.ErrorMap()
@@ -36,7 +36,7 @@ func TestIncluded_ValidateAll(t *testing.T) {
 	}
 }
 
-func TestIncluded_TypeCheck(t *testing.T) {
+func TestOneOf_TypeCheck(t *testing.T) {
 	i := 0
 	badCondition := "is not a int"
 
@@ -52,12 +52,12 @@ func TestIncluded_TypeCheck(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			testTypeCheck(t, tc.data, includedName, tc.badCondition, Included[int]{})
+			testTypeCheck(t, tc.data, oneOfName, tc.badCondition, OneOf[int]{})
 		})
 	}
 }
 
-func TestIncluded_ErrorMap(t *testing.T) {
-	testErrorMap(t, Included[string]{In: []string{"a", "b"}}, "Included: value is not one of [a b]")
-	testErrorMap(t, Included[int]{In: []int{1, 2, 3}}, "Included: value is not one of [1 2 3]")
+func TestOneOf_ErrorMap(t *testing.T) {
+	testErrorMap(t, OneOf[string]{Values: []string{"a", "b"}}, "OneOf: value is not one of [a b]")
+	testErrorMap(t, OneOf[int]{Values: []int{1, 2, 3}}, "OneOf: value is not one of [1 2 3]")
 }
