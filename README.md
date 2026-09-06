@@ -174,8 +174,8 @@ Built-in rules are in the `rule` package:
 | `rule.Greater[T]{OrEqual, To}` | value is greater (or equal) than `To` |
 | `rule.Included[T]{In}` | value is one of `In` |
 | `rule.Match{Regexp}` | string matches `Regexp` |
+| `rule.Len{Is, Min, Max}` | length of value is `Is` or between `Min` and `Max` (strings, slices, arrays, maps, chans) |
 | `rule.Not{Rule}` | negates another rule |
-| `rule.Attr{Of, Rule}` | applies a rule to a `rule.Attribute` of the value |
 
 You can implement your own too:
 
@@ -253,32 +253,6 @@ func (e Even) Validate(data int) firm.ErrorMap {
 	return e.ErrorMap()
 }
 ```
-
-### Attributes
-
-`rule.Attr` is a struct that implements `firm.Rule`, which allows for rules on derived values called attributes.
-
-```go
-type Attr struct {
-	Of   Attribute
-	Rule firm.RuleBasic
-}
-
-// trimPresent = Not (TrimSpace Value Equal To "")
-trimPresent := rule.Not{ // 1. Not
-	Rule: rule.Attr{
-		Of:   attr.TrimSpace{},           // 2. TrimSpace Value
-		Rule: rule.Equal[string]{To: ""}, // 3. Equal To ""
-	},
-}
-```
-
-The `rule.Attribute` interface does the value derivations. Built-in attributes are in the `attr` package:
-
-| Attribute | Extracts |
-| --- | --- |
-| `attr.Len{}` | `len(value)` (slices, arrays, maps, chans, strings) |
-| `attr.TrimSpace{}` | `strings.TrimSpace(value)` |
 
 ### Validators
 

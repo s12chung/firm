@@ -12,7 +12,6 @@ import (
 func TestNot_ValidateValue(t *testing.T) {
 	tcs := []struct {
 		name string
-		attr Attribute
 		rule firm.RuleBasic
 
 		data     any
