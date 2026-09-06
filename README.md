@@ -173,6 +173,7 @@ Built-in rules are in the `rule` package:
 | `rule.Less[T]{OrEqual, To}` | value is less (or equal) than `To` |
 | `rule.Greater[T]{OrEqual, To}` | value is greater (or equal) than `To` |
 | `rule.Included[T]{In}` | value is one of `In` |
+| `rule.Match{Regexp}` | string matches `Regexp` |
 | `rule.Not{Rule}` | negates another rule |
 | `rule.Attr{Of, Rule}` | applies a rule to a `rule.Attribute` of the value |
 
@@ -207,7 +208,7 @@ func (e Even) ErrorMap() firm.ErrorMap {
 The following built-in rules implement `firm.RuleTyped[T any]`, which exposes `Validate(data T)` for convenience really:
 
 - `rule.Equal[T]`, `rule.Less[T]`, `rule.Greater[T]`, `rule.Included[T]` - the `T` type passes the type implicitly and ensures they're `comparable` or `cmp.Ordered` at compile time
-- `rule.TrimPresent` - why not
+- `rule.TrimPresent`, `rule.Match` - why not
 
 When you want to implement your own `firm.RuleTyped[T any]`, here's an example:
 
