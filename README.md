@@ -173,6 +173,7 @@ Built-in rules are in the `rule` package:
 | `rule.Less[T]{OrEqual, To}` | value is less (or equal) than `To` |
 | `rule.Greater[T]{OrEqual, To}` | value is greater (or equal) than `To` |
 | `rule.OneOf[T]{Values}` | value is one of `Values` |
+| `rule.OneNotNil{Fields}` | exactly one of the named Fields (that are pointer types) is not nil |
 | `rule.Match{Regexp}` | string matches `Regexp` |
 | `rule.Len{Is, Min, Max}` | length of value is `Is` or between `Min` and `Max` (strings, slices, arrays, maps, chans) |
 | `rule.Not{Rule}` | negates another rule |
