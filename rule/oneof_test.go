@@ -25,13 +25,20 @@ func TestOneOf_ValidateAll(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			rule := OneOf[string]{Values: tc.values}
-			var expected firm.ErrorMap
-			if tc.hasError {
-				expected = rule.ErrorMap()
+			rules := map[string]firm.RuleTyped[string]{
+				oneOfName:     OneOf[string]{Values: tc.values},
+				oneOfFuncName: OneOfFunc[string]{ValuesFunc: func() []string { return tc.values }},
 			}
-			require.Equal(t, expected, rule.Validate(tc.data))
-			require.Equal(t, expected, rule.ValidateValue(reflect.ValueOf(tc.data)))
+			for name, rule := range rules {
+				t.Run(name, func(t *testing.T) {
+					var expected firm.ErrorMap
+					if tc.hasError {
+						expected = rule.ErrorMap()
+					}
+					require.Equal(t, expected, rule.Validate(tc.data))
+					require.Equal(t, expected, rule.ValidateValue(reflect.ValueOf(tc.data)))
+				})
+			}
 		})
 	}
 }
@@ -50,14 +57,28 @@ func TestOneOf_TypeCheck(t *testing.T) {
 		{name: "other type", data: "", badCondition: badCondition},
 	}
 
+	rules := map[string]firm.RuleTyped[int]{
+		oneOfName:     OneOf[int]{},
+		oneOfFuncName: OneOfFunc[int]{ValuesFunc: func() []int { return nil }},
+	}
+
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			testTypeCheck(t, tc.data, oneOfName, tc.badCondition, OneOf[int]{})
+			for name, rule := range rules {
+				t.Run(name, func(t *testing.T) {
+					testTypeCheck(t, tc.data, name, tc.badCondition, rule)
+				})
+			}
 		})
 	}
 }
 
 func TestOneOf_ErrorMap(t *testing.T) {
+	valuesFunc := func(values ...string) func() []string {
+		return func() []string { return values }
+	}
 	testErrorMap(t, OneOf[string]{Values: []string{"a", "b"}}, "OneOf: value is not one of [a b]")
+	testErrorMap(t, OneOfFunc[string]{ValuesFunc: valuesFunc("a", "b")}, "OneOfFunc: value is not one of [a b]")
 	testErrorMap(t, OneOf[int]{Values: []int{1, 2, 3}}, "OneOf: value is not one of [1 2 3]")
+	testErrorMap(t, OneOfFunc[int]{ValuesFunc: func() []int { return []int{1, 2, 3} }}, "OneOfFunc: value is not one of [1 2 3]")
 }

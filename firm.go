@@ -56,7 +56,7 @@ type Rule interface {
 	TypeCheck(typ reflect.Type) *RuleTypeError
 }
 
-// RuleBasic is a Rule that is not composed of other rules
+// RuleBasic is a Rule that can return its ErrorMap without validating a value
 type RuleBasic interface {
 	Rule
 	ErrorMap() ErrorMap

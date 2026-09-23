@@ -173,10 +173,12 @@ Built-in rules are in the `rule` package:
 | `rule.Less[T]{OrEqual, To}` | value is less (or equal) than `To` |
 | `rule.Greater[T]{OrEqual, To}` | value is greater (or equal) than `To` |
 | `rule.OneOf[T]{Values}` | value is one of `Values` |
+| `rule.OneOfFunc[T]{ValuesFunc}` | value is one of the result of `ValuesFunc()` |
 | `rule.OneNotNil{Fields}` | exactly one of the named Fields (that are pointer types) is not nil |
 | `rule.Match{Regexp}` | string matches `Regexp` |
 | `rule.Len{Is, Min, Max}` | length of value is `Is` or between `Min` and `Max` (strings, slices, arrays, maps, chans) |
 | `rule.Not{Rule}` | negates another rule |
+| `rule.Named{Name, Rule}` | renames the error key of `Rule` to `Name` |
 
 You can implement your own too:
 
@@ -201,14 +203,16 @@ func (e Even) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 	return firm.NewRuleTypeError("Even", typ, "is not an Int")
 }
 
+// ErrorMap implements the firm.RuleBasic interface (see below)
 func (e Even) ErrorMap() firm.ErrorMap {
+	// Built-in rules return one error; you may return multiple errors for complex rules
 	return firm.ErrorMap{"Even": firm.TemplateError{Template: "is not even"}}
 }
 ```
 
 The following built-in rules implement `firm.RuleTyped[T any]`, which exposes `Validate(data T)` for convenience really:
 
-- `rule.Equal[T]`, `rule.Less[T]`, `rule.Greater[T]`, `rule.OneOf[T]` - the `T` type passes the type implicitly and ensures they're `comparable` or `cmp.Ordered` at compile time
+- `rule.Equal[T]`, `rule.Less[T]`, `rule.Greater[T]`, `rule.OneOf[T]`, `rule.OneOfFunc[T]` - the `T` type passes the type implicitly and ensures they're `comparable` or `cmp.Ordered` at compile time
 - `rule.TrimPresent`, `rule.Match` - why not
 
 When you want to implement your own `firm.RuleTyped[T any]`, here's an example:
@@ -241,7 +245,9 @@ func (e Even) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 	return firm.NewRuleTypeError("Even", typ, "is not an Int")
 }
 
+// ErrorMap implements the firm.RuleBasic interface
 func (e Even) ErrorMap() firm.ErrorMap {
+	// Built-in rules return one error; you may return multiple errors for complex rules.
 	return firm.ErrorMap{"Even": firm.TemplateError{Template: "is not even"}}
 }
 
