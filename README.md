@@ -177,8 +177,6 @@ Built-in rules are in the `rule` package:
 | `rule.OneNotNil{Fields}` | exactly one of the named Fields (that are pointer types) is not nil |
 | `rule.Match{Regexp}` | string matches `Regexp` |
 | `rule.Len{Is, Min, Max}` | length of value is `Is` or between `Min` and `Max` (strings, slices, arrays, maps, chans) |
-| `rule.Not{Rule}` | negates another rule |
-| `rule.Named{Name, Rule}` | renames the error key of `Rule` to `Name` |
 
 You can implement your own too:
 
@@ -210,6 +208,22 @@ func (e Even) ErrorMap() firm.ErrorMap {
 }
 ```
 
+Implement `firm.RuleBasic` to use firm's built-in composition rules:
+
+```go
+type RuleBasic interface {
+	Rule
+	ErrorMap() ErrorMap
+}
+```
+
+| Rule | Checks |
+| --- | --- |
+| `rule.Named{Name, Rule}` | renames the error key of `Rule` to `Name` |
+| `rule.Not{Rule}` | negates another rule |
+| `rule.Or{Rules}` | value is valid for any of the `Rules` |
+| | (there is no AND rule--`[]Rule` is passed throughout operate as an AND) |
+
 The following built-in rules implement `firm.RuleTyped[T any]`, which exposes `Validate(data T)` for convenience really:
 
 - `rule.Equal[T]`, `rule.Less[T]`, `rule.Greater[T]`, `rule.OneOf[T]`, `rule.OneOfFunc[T]` - the `T` type passes the type implicitly and ensures they're `comparable` or `cmp.Ordered` at compile time
@@ -218,11 +232,6 @@ The following built-in rules implement `firm.RuleTyped[T any]`, which exposes `V
 When you want to implement your own `firm.RuleTyped[T any]`, here's an example:
 
 ```go
-type RuleBasic interface {
-	Rule
-	ErrorMap() ErrorMap
-}
-
 type RuleTyped[T any] interface {
 	RuleBasic
 	Validate(data T) ErrorMap
