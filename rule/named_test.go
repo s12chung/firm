@@ -73,5 +73,5 @@ func TestNamed_TypeCheck(t *testing.T) {
 }
 
 func TestNamed_ErrorMap(t *testing.T) {
-	testErrorMap(t, Named{Name: "MyValues", Rule: OneOf[string]{Values: []string{"a", "b"}}}, "MyValues: value is not one of [a b]")
+	testErrorMap(t, Named{Name: "MyValues", Rule: OneOf[string]{Values: []string{"a", "b"}}}, "MyValues: value is not one of [\"a\" \"b\"]")
 }

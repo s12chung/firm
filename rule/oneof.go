@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 
 	"github.com/s12chung/firm"
 )
@@ -42,9 +43,23 @@ func (o OneOf[T]) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 // ErrorMap returns the ErrorMap returned from ValidateValue
 func (o OneOf[T]) ErrorMap() firm.ErrorMap {
 	return firm.ErrorMap{oneOfName: firm.TemplateError{
-		TemplateFields: map[string]string{"Values": fmt.Sprintf("%v", o.Values)},
+		TemplateFields: map[string]string{"Values": valuesStr(o.Values)},
 		Template:       "is not one of {{.Values}}",
 	}}
+}
+
+// valuesStr formats values for the error message; string values are quoted,
+// otherwise an empty string won't show up
+func valuesStr[T comparable](values []T) string {
+	strs := make([]string, len(values))
+	for i, v := range values {
+		if s, ok := any(v).(string); ok {
+			strs[i] = strconv.Quote(s)
+		} else {
+			strs[i] = fmt.Sprintf("%v", v)
+		}
+	}
+	return fmt.Sprintf("%v", strs)
 }
 
 const oneOfFuncName = "OneOfFunc"
@@ -81,7 +96,7 @@ func (o OneOfFunc[T]) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 // ErrorMap returns the ErrorMap returned from ValidateValue
 func (o OneOfFunc[T]) ErrorMap() firm.ErrorMap {
 	return firm.ErrorMap{oneOfFuncName: firm.TemplateError{
-		TemplateFields: map[string]string{"Values": fmt.Sprintf("%v", o.ValuesFunc())},
+		TemplateFields: map[string]string{"Values": valuesStr(o.ValuesFunc())},
 		Template:       "is not one of {{.Values}}",
 	}}
 }

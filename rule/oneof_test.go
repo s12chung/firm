@@ -77,8 +77,10 @@ func TestOneOf_ErrorMap(t *testing.T) {
 	valuesFunc := func(values ...string) func() []string {
 		return func() []string { return values }
 	}
-	testErrorMap(t, OneOf[string]{Values: []string{"a", "b"}}, "OneOf: value is not one of [a b]")
-	testErrorMap(t, OneOfFunc[string]{ValuesFunc: valuesFunc("a", "b")}, "OneOfFunc: value is not one of [a b]")
+	testErrorMap(t, OneOf[string]{Values: []string{"a", "b"}}, "OneOf: value is not one of [\"a\" \"b\"]")
+	testErrorMap(t, OneOfFunc[string]{ValuesFunc: valuesFunc("a", "b")}, "OneOfFunc: value is not one of [\"a\" \"b\"]")
+	testErrorMap(t, OneOf[string]{Values: []string{"a", ""}}, "OneOf: value is not one of [\"a\" \"\"]")
+	testErrorMap(t, OneOfFunc[string]{ValuesFunc: valuesFunc("a", "")}, "OneOfFunc: value is not one of [\"a\" \"\"]")
 	testErrorMap(t, OneOf[int]{Values: []int{1, 2, 3}}, "OneOf: value is not one of [1 2 3]")
 	testErrorMap(t, OneOfFunc[int]{ValuesFunc: func() []int { return []int{1, 2, 3} }}, "OneOfFunc: value is not one of [1 2 3]")
 }
