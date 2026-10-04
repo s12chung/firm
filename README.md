@@ -1,6 +1,6 @@
 # firm
 
-> Declarative validation rules in plain Go--no struct tags.
+> Declarative validations in plain Go--with recursive, composable, and customizable rules.
 
 - Register validation rules once per type; explicitly recurse into nested structs, pointers, slices, and maps
 - Validations return structured, templated, easy to inspect `error`s
@@ -165,18 +165,22 @@ type Rule interface {
 
 Built-in rules are in the `rule` package:
 
-| Rule | Checks |
-| --- | --- |
-| `rule.Present{}` | value is non-zero (and non-empty for strings, slices, arrays, maps, chans) |
-| `rule.TrimPresent{}` | string is not empty after `strings.TrimSpace` |
-| `rule.Equal[T]{To}` | value equals `To` |
-| `rule.Less[T]{OrEqual, To}` | value is less (or equal) than `To` |
-| `rule.Greater[T]{OrEqual, To}` | value is greater (or equal) than `To` |
-| `rule.OneOf[T]{Values}` | value is one of `Values` |
-| `rule.OneOfFunc[T]{ValuesFunc}` | value is one of the result of `ValuesFunc()` |
-| `rule.OneNotNil{Fields}` | exactly one of the named Fields (that are pointer types) is not nil |
-| `rule.Match{Regexp}` | string matches `Regexp` |
-| `rule.Len{Is, Min, Max}` | length of value is `Is` or between `Min` and `Max` (strings, slices, arrays, maps, chans) |
+| Rule | Types | Checks |
+| --- | --- | --- |
+| **Presence** | | |
+| `rule.Present{}` | any | value is non-zero (and non-empty for `Len()`-able types) |
+| `rule.TrimPresent{}` | string | string is not empty after `strings.TrimSpace` |
+| **Format & length** | | |
+| `rule.Match{Regexp}` | string | string matches `Regexp` |
+| `rule.Len{Is, Min, Max}` | `Len()`-able | length of value is `Is` or between `Min` and `Max` |
+| **Comparison** | | |
+| `rule.OneOf[T]{Values}` | comparable | value is one of `Values` |
+| `rule.OneOfFunc[T]{ValuesFunc}` | comparable | value is one of the result of `ValuesFunc()` |
+| `rule.Equal[T]{To}` | comparable | value equals `To` |
+| `rule.Less[T]{OrEqual, To}` | `cmp.Ordered` | value is less (or equal) than `To` |
+| `rule.Greater[T]{OrEqual, To}` | `cmp.Ordered` | value is greater (or equal) than `To` |
+| **Struct** | | |
+| `rule.OneNotNil{Fields}` | struct | exactly one of the named Fields (that are pointer types) is not nil |
 
 You can implement your own too:
 

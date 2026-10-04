@@ -1,4 +1,4 @@
-// Package firm contains functions to do validations
+// Package firm provides declarative validations in plain Go--with recursive, composable, and customizable rules
 package firm
 
 import (
