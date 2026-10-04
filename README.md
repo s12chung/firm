@@ -222,7 +222,7 @@ type RuleBasic interface {
 | `rule.Named{Name, Rule}` | renames the error key of `Rule` to `Name` |
 | `rule.Not{Rule}` | negates another rule |
 | `rule.Or{Rules}` | value is valid for any of the `Rules` |
-| | (there is no AND rule--`[]Rule` is passed throughout operate as an AND) |
+| `rule.And{Rules}` | value is valid for all of the `Rules` (only for easier composition--`[]Rule` is passed throughout in `firm.Validator` and `firm.Definition` as an AND) |
 
 The following built-in rules implement `firm.RuleTyped[T any]`, which exposes `Validate(data T)` for convenience really:
 

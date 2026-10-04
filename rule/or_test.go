@@ -35,6 +35,7 @@ func TestOr_ValidateValue(t *testing.T) {
 	}
 }
 
+//nolint:dupl // symmetric with TestAnd_TypeCheck
 func TestOr_TypeCheck(t *testing.T) {
 	stringRules := Or{Rules: []firm.RuleBasic{TrimPresent{}, Present{}}}
 	tcs := []struct {
