@@ -41,6 +41,18 @@ func (e ErrorMap) Merge(path string, src ErrorMap) {
 	}
 }
 
+// Clone returns a deep copy of e--new ErrorMap and TemplateFields, so mutating the copy does not affect e
+func (e ErrorMap) Clone() ErrorMap {
+	clone := make(ErrorMap, len(e))
+	for key, templateError := range e {
+		if templateError.TemplateFields != nil {
+			templateError.TemplateFields = maps.Clone(templateError.TemplateFields)
+		}
+		clone[key] = templateError
+	}
+	return clone
+}
+
 // ToNil returns itself or nil if it's empty
 func (e ErrorMap) ToNil() ErrorMap {
 	if len(e) == 0 {

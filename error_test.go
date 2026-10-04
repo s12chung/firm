@@ -35,6 +35,21 @@ func TestErrorMap_Merge(t *testing.T) {
 	}, dest)
 }
 
+func TestErrorMap_Clone(t *testing.T) {
+	require := require.New(t)
+
+	original := ErrorMap{"A": TemplateError{Template: "a", TemplateFields: map[string]string{"Field": "value"}}}
+	clone := original.Clone()
+
+	require.Equal(original, clone)
+
+	templateError := clone["A"]
+	templateError.Template = "mutated"
+	templateError.TemplateFields["Field"] = "mutated"
+	clone["A"] = templateError
+	require.Equal(ErrorMap{"A": TemplateError{Template: "a", TemplateFields: map[string]string{"Field": "value"}}}, original)
+}
+
 func TestErrorMap_ToNil(t *testing.T) {
 	tcs := []struct {
 		name     string
