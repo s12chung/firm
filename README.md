@@ -174,8 +174,7 @@ Built-in rules are in the `rule` package:
 | `rule.Match{Regexp}` | string | string matches `Regexp` |
 | `rule.Len{Is, Min, Max}` | `Len()`-able | length of value is `Is` or between `Min` and `Max` |
 | **Comparison** | | |
-| `rule.OneOf[T]{Values}` | comparable | value is one of `Values` |
-| `rule.OneOfFunc[T]{ValuesFunc}` | comparable | value is one of the result of `ValuesFunc()` |
+| `rule.OneOf[T]{Values, ValuesFunc}` | comparable | value is one of `Values` or the result of `ValuesFunc()` (both must not be set) |
 | `rule.Equal[T]{To}` | comparable | value equals `To` |
 | `rule.Less[T]{OrEqual, To}` | `cmp.Ordered` | value is less (or equal) than `To` |
 | `rule.Greater[T]{OrEqual, To}` | `cmp.Ordered` | value is greater (or equal) than `To` |
@@ -231,7 +230,7 @@ type RuleBasic interface {
 
 The following built-in rules implement `firm.RuleTyped[T any]`, which exposes `Validate(data T)` for convenience really:
 
-- `rule.Equal[T]`, `rule.Less[T]`, `rule.Greater[T]`, `rule.OneOf[T]`, `rule.OneOfFunc[T]` - the `T` type passes the type implicitly and ensures they're `comparable` or `cmp.Ordered` at compile time
+- `rule.Equal[T]`, `rule.Less[T]`, `rule.Greater[T]`, `rule.OneOf[T]` - the `T` type passes the type implicitly and ensures they're `comparable` or `cmp.Ordered` at compile time
 - `rule.TrimPresent`, `rule.Match` - why not
 
 When you want to implement your own `firm.RuleTyped[T any]`, here's an example:

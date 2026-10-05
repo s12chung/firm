@@ -25,9 +25,9 @@ func TestOneOf_ValidateAll(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			rules := map[string]firm.RuleTyped[string]{
-				oneOfName:     OneOf[string]{Values: tc.values},
-				oneOfFuncName: OneOfFunc[string]{ValuesFunc: func() []string { return tc.values }},
+			rules := map[string]OneOf[string]{
+				"Values":     {Values: tc.values},
+				"ValuesFunc": {ValuesFunc: func() []string { return tc.values }},
 			}
 			for name, rule := range rules {
 				t.Run(name, func(t *testing.T) {
@@ -57,20 +57,17 @@ func TestOneOf_TypeCheck(t *testing.T) {
 		{name: "other type", data: "", badCondition: badCondition},
 	}
 
-	rules := map[string]firm.RuleTyped[int]{
-		oneOfName:     OneOf[int]{},
-		oneOfFuncName: OneOfFunc[int]{ValuesFunc: func() []int { return nil }},
-	}
-
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			for name, rule := range rules {
-				t.Run(name, func(t *testing.T) {
-					testTypeCheck(t, tc.data, name, tc.badCondition, rule)
-				})
-			}
+			testTypeCheck(t, tc.data, oneOfName, tc.badCondition, OneOf[int]{})
 		})
 	}
+}
+
+func TestOneOf_BothSet(t *testing.T) {
+	bothSet := OneOf[int]{Values: []int{1}, ValuesFunc: func() []int { return []int{2} }}
+
+	testTypeCheck(t, 0, oneOfName, "Values and ValuesFunc must not both be set", bothSet)
 }
 
 func TestOneOf_ErrorMap(t *testing.T) {
@@ -78,9 +75,9 @@ func TestOneOf_ErrorMap(t *testing.T) {
 		return func() []string { return values }
 	}
 	testErrorMap(t, OneOf[string]{Values: []string{"a", "b"}}, "OneOf: value is not one of [\"a\" \"b\"]")
-	testErrorMap(t, OneOfFunc[string]{ValuesFunc: valuesFunc("a", "b")}, "OneOfFunc: value is not one of [\"a\" \"b\"]")
+	testErrorMap(t, OneOf[string]{ValuesFunc: valuesFunc("a", "b")}, "OneOf: value is not one of [\"a\" \"b\"]")
 	testErrorMap(t, OneOf[string]{Values: []string{"a", ""}}, "OneOf: value is not one of [\"a\" \"\"]")
-	testErrorMap(t, OneOfFunc[string]{ValuesFunc: valuesFunc("a", "")}, "OneOfFunc: value is not one of [\"a\" \"\"]")
+	testErrorMap(t, OneOf[string]{ValuesFunc: valuesFunc("a", "")}, "OneOf: value is not one of [\"a\" \"\"]")
 	testErrorMap(t, OneOf[int]{Values: []int{1, 2, 3}}, "OneOf: value is not one of [1 2 3]")
-	testErrorMap(t, OneOfFunc[int]{ValuesFunc: func() []int { return []int{1, 2, 3} }}, "OneOfFunc: value is not one of [1 2 3]")
+	testErrorMap(t, OneOf[int]{ValuesFunc: func() []int { return []int{1, 2, 3} }}, "OneOf: value is not one of [1 2 3]")
 }
