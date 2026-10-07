@@ -125,10 +125,12 @@ func (e ErrorKey) split() []string {
 	return append(segments, s[start:])
 }
 
+const typeSegmentCount = 2
+
 // RootTypeName returns the type name of the key
 func (e ErrorKey) RootTypeName() string {
 	segments := e.split()
-	if len(segments) < 3 {
+	if len(segments) <= typeSegmentCount {
 		return ""
 	}
 	return strings.Join(segments[:2], keySeparator)
@@ -138,12 +140,25 @@ func (e ErrorKey) RootTypeName() string {
 func (e ErrorKey) ValueName() string {
 	segments := e.split()
 	switch {
-	case len(segments) < 3:
+	case len(segments) <= typeSegmentCount:
 		return ""
-	case len(segments) == 3:
-		return strings.Join(segments[:2], keySeparator)
+	case len(segments) == typeSegmentCount+1:
+		return strings.Join(segments[:typeSegmentCount], keySeparator)
 	}
-	return segments[len(segments)-2]
+	// fixes: "[0] does not match" --> "Domains[0]"
+	name := segments[len(segments)-typeSegmentCount]
+	// not a [0]
+	if !strings.HasPrefix(name, "[") {
+		return name
+	}
+	start := len(segments) - typeSegmentCount
+	for start > typeSegmentCount && strings.HasPrefix(segments[start-1], "[") {
+		start--
+	}
+	if start == typeSegmentCount {
+		return name
+	}
+	return segments[start-1] + strings.Join(segments[start:len(segments)-1], "")
 }
 
 // ErrorName returns the error name of the key

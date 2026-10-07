@@ -147,10 +147,11 @@ func TestErrorKey_ValueName(t *testing.T) {
 		expected string
 	}{
 		{name: "deep", errorKey: "firm.parent.Field.[0].InnerField.TheError", expected: "InnerField"},
-		{name: "slice", errorKey: "firm.parent.Field.[0].TheError", expected: "[0]"},
+		{name: "slice", errorKey: "firm.parent.Field.[0].TheError", expected: "Field[0]"},
+		{name: "nested_slice", errorKey: "firm.parent.Field.[0].[1].TheError", expected: "Field[0][1]"},
 		{name: "field", errorKey: "firm.parent.Field.TheError", expected: "Field"},
 		{name: "self", errorKey: "firm.parent.TheError", expected: "firm.parent"},
-		{name: "map_key_separator", errorKey: "firm.parent.Map.[a.b].TheError", expected: "[a.b]"},
+		{name: "map_key_separator", errorKey: "firm.parent.Map.[a.b].TheError", expected: "Map[a.b]"},
 		{name: "composite_root", errorKey: "map[string]firm.Child.[k].TheError", expected: "[k]"},
 		{name: "just_type", errorKey: "firm.parent", expected: ""},
 		{name: "empty", errorKey: "", expected: ""},
