@@ -52,3 +52,23 @@ func TestShowValue_validates(t *testing.T) {
 		require.Equal(`Str is not one of ["a"]: "b"`, err.Error())
 	}
 }
+
+func TestShowValue_nestedValidators(t *testing.T) {
+	require := require.New(t)
+
+	// nested validators: registered type -> Elems -> ShowValue, the element
+	// captured by Elems must not be clobbered by the registered type's value
+	type config struct{ Masks []string }
+	registry := &firm.Registry{}
+	registry.MustRegisterType(firm.NewDefinition[config]().Validates(firm.RuleMap{
+		"Masks": {firm.Elems[[]string](ShowValue(OneOf[string]{Values: []string{"/tmp"}}))},
+	}))
+
+	require.Nil(registry.ValidateAny(config{Masks: []string{"/tmp"}}))
+
+	errMap := registry.ValidateAny(config{Masks: []string{"/etc"}})
+	require.Len(errMap, 1)
+	for _, err := range errMap {
+		require.Equal(`Masks[0] is not one of ["/tmp"]: "/etc"`, err.Error())
+	}
+}

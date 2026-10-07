@@ -70,7 +70,10 @@ func (e ErrorMap) Clone() ErrorMap {
 func (e ErrorMap) withValue(value reflect.Value) ErrorMap {
 	withValue := make(ErrorMap, len(e))
 	for key, templateError := range e {
-		templateError.value = value
+		// validators nest and the innermost capture is the failing value
+		if !templateError.value.IsValid() {
+			templateError.value = value
+		}
 		withValue[key] = templateError
 	}
 	return withValue

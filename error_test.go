@@ -64,6 +64,28 @@ func TestErrorMap_Clone(t *testing.T) {
 	require.Equal(ErrorMap{"A": TemplateError{Template: "a", TemplateFields: map[string]string{"Field": "value"}}}, original)
 }
 
+func TestErrorMap_withValue(t *testing.T) {
+	require := require.New(t)
+
+	shared := ErrorMap{
+		"Captured":    {Template: "captured"},
+		"NotCaptured": {Template: "not captured"},
+	}
+	capturedValue := reflect.ValueOf("captured")
+	captured := shared["Captured"]
+	captured.value = capturedValue
+	shared["Captured"] = captured
+
+	value := reflect.ValueOf("value")
+	withValue := shared.withValue(value)
+
+	require.Equal(value.Interface(), withValue["NotCaptured"].value.Interface())
+	// the innermost capture wins--outer validators do not clobber it
+	require.Equal(capturedValue.Interface(), withValue["Captured"].value.Interface())
+	// the shared rule ErrorMap is not mutated
+	require.False(shared["NotCaptured"].value.IsValid())
+}
+
 func TestErrorMap_ToNil(t *testing.T) {
 	tcs := []struct {
 		name     string
