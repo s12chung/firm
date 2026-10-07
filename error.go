@@ -8,15 +8,22 @@ import (
 	"text/template"
 )
 
+// valueNamePrefix is the default Error prefix--the error's subject (ex. "Str is not present")
+const valueNamePrefix = "{{.ValueName}} "
+
 // ErrorMap is a map of TemplateError keys to their respective TemplateError
 //
 //nolint:errname
 type ErrorMap map[ErrorKey]TemplateError
 
-func (e ErrorMap) Error() string {
+// Error returns the error string for the ErrorMap
+func (e ErrorMap) Error() string { return e.ErrorWithPrefix(valueNamePrefix) }
+
+// ErrorWithPrefix returns the error string for the ErrorMap, with prefix passed to each TemplateError.ErrorWithPrefix
+func (e ErrorMap) ErrorWithPrefix(prefix string) string {
 	errs := make([]string, len(e))
 	for i, k := range e.sortedKeys() {
-		errs[i] = string(k) + ": " + e[k].Error()
+		errs[i] = string(k) + ": " + e[k].ErrorWithPrefix(prefix)
 	}
 	return strings.Join(errs, ", ")
 }
@@ -68,10 +75,13 @@ type TemplateError struct {
 	ErrorKey       ErrorKey
 }
 
-// Error returns a string for the error
-func (t TemplateError) Error() string {
+// Error returns a string for the error, prefixed with its ValueName
+func (t TemplateError) Error() string { return t.ErrorWithPrefix(valueNamePrefix) }
+
+// ErrorWithPrefix returns a string for the error, with prefix--parsed as a template
+func (t TemplateError) ErrorWithPrefix(prefix string) string {
 	badTemplateString := t.Template + " (bad format)"
-	temp, err := template.New("top").Parse("{{.ValueName}} " + t.Template)
+	temp, err := template.New("top").Parse(prefix + t.Template)
 	if err != nil {
 		return badTemplateString
 	}

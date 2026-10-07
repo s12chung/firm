@@ -17,6 +17,17 @@ func TestErrorMap_Error(t *testing.T) {
 	require.Equal("A: value field A message, B: value field B message", errorMap.Error())
 }
 
+func TestErrorMap_ErrorWithPrefix(t *testing.T) {
+	require := require.New(t)
+
+	errorMap := ErrorMap{
+		"A": TemplateError{Template: "field A message"},
+		"B": TemplateError{Template: "field B message"},
+	}
+	require.Equal("A: value：field A message, B: value：field B message",
+		errorMap.ErrorWithPrefix("{{.ValueName}}："))
+}
+
 func TestErrorMap_Merge(t *testing.T) {
 	require := require.New(t)
 
@@ -114,6 +125,32 @@ func TestTemplateError_Error(t *testing.T) {
 			}
 
 			require.Equal(tc.expected, templateError.Error())
+		})
+	}
+}
+
+func TestTemplateError_ErrorWithPrefix(t *testing.T) {
+	tcs := []struct {
+		name     string
+		prefix   string
+		template string
+		expected string
+	}{
+		{name: "default", prefix: "{{.ValueName}} ", expected: "MyField has no Jack and Jill since it's of type: pkger.Mover"},
+		{name: "custom_separator", prefix: "{{.ValueName}}：", expected: "MyField：has no Jack and Jill since it's of type: pkger.Mover"},
+		{name: "other_fields", prefix: "[{{.RootTypeName}}] ", expected: "[pkger.Mover] has no Jack and Jill since it's of type: pkger.Mover"},
+		{name: "none", prefix: "", expected: "has no Jack and Jill since it's of type: pkger.Mover"},
+		{name: "subject_last", prefix: "", template: "{{ .Him }}が必要な{{.ValueName}}ではありません", expected: "Jackが必要なMyFieldではありません"},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
+
+			templateError := fullTemplate()
+			if tc.template != "" {
+				templateError.Template = tc.template
+			}
+			require.Equal(tc.expected, templateError.ErrorWithPrefix(tc.prefix))
 		})
 	}
 }
