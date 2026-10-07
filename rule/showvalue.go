@@ -6,22 +6,26 @@ import (
 	"github.com/s12chung/firm"
 )
 
-// ShowValue appends the failing value to .Rule's error messages,
+// ShowValue returns a Rule that appends the failing value to rule's error messages,
 // the CLI standard: `Str is not one of Noun, Verb: "Noun"`
-type ShowValue struct{ Rule firm.RuleBasic }
+func ShowValue(rule firm.RuleBasic) ShowValueWrap { return ShowValueWrap{rule} }
 
-// ValidateValue validates the data value with .Rule, appending the failing value to the errors (assumes TypeCheck is called)
-func (s ShowValue) ValidateValue(value reflect.Value) firm.ErrorMap {
-	return s.valueToErrTemplate(s.Rule.ValidateValue(value))
+// ShowValueWrap appends the failing value to its Rule's error messages,
+// the CLI standard: `Str is not one of Noun, Verb: "Noun"`
+type ShowValueWrap struct{ rule firm.RuleBasic }
+
+// ValidateValue validates the data value with its Rule, appending the failing value to the errors (assumes TypeCheck is called)
+func (s ShowValueWrap) ValidateValue(value reflect.Value) firm.ErrorMap {
+	return s.valueToErrTemplate(s.rule.ValidateValue(value))
 }
 
 // TypeCheck checks whether the type is valid for the Rule
-func (s ShowValue) TypeCheck(typ reflect.Type) *firm.RuleTypeError { return s.Rule.TypeCheck(typ) }
+func (s ShowValueWrap) TypeCheck(typ reflect.Type) *firm.RuleTypeError { return s.rule.TypeCheck(typ) }
 
 // ErrorMap returns the ErrorMap returned from ValidateValue
-func (s ShowValue) ErrorMap() firm.ErrorMap { return s.valueToErrTemplate(s.Rule.ErrorMap()) }
+func (s ShowValueWrap) ErrorMap() firm.ErrorMap { return s.valueToErrTemplate(s.rule.ErrorMap()) }
 
-func (s ShowValue) valueToErrTemplate(errorMap firm.ErrorMap) firm.ErrorMap {
+func (s ShowValueWrap) valueToErrTemplate(errorMap firm.ErrorMap) firm.ErrorMap {
 	if len(errorMap) == 0 {
 		return nil
 	}

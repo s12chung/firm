@@ -6,23 +6,26 @@ import (
 	"github.com/s12chung/firm"
 )
 
-// Not is a rule that negates a firm.RuleBasic
-type Not struct{ Rule firm.RuleBasic }
+// Not returns a Rule that negates rule
+func Not(rule firm.RuleBasic) NotWrap { return NotWrap{rule} }
 
-// ValidateValue negates the Rule's ValidateValue() (assumes TypeCheck is called)
-func (n Not) ValidateValue(value reflect.Value) firm.ErrorMap {
-	if n.Rule.ValidateValue(value).ToNil() == nil {
+// NotWrap negates its Rule
+type NotWrap struct{ rule firm.RuleBasic }
+
+// ValidateValue negates its Rule's ValidateValue() (assumes TypeCheck is called)
+func (n NotWrap) ValidateValue(value reflect.Value) firm.ErrorMap {
+	if n.rule.ValidateValue(value).ToNil() == nil {
 		return n.ErrorMap()
 	}
 	return nil
 }
 
 // TypeCheck checks whether the type is valid for the Rule
-func (n Not) TypeCheck(typ reflect.Type) *firm.RuleTypeError { return n.Rule.TypeCheck(typ) }
+func (n NotWrap) TypeCheck(typ reflect.Type) *firm.RuleTypeError { return n.rule.TypeCheck(typ) }
 
 // ErrorMap returns the ErrorMap returned from ValidateValue
-func (n Not) ErrorMap() firm.ErrorMap {
-	original := n.Rule.ErrorMap()
+func (n NotWrap) ErrorMap() firm.ErrorMap {
+	original := n.rule.ErrorMap()
 	if len(original) == 0 {
 		return nil
 	}

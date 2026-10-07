@@ -9,7 +9,7 @@ import (
 	"github.com/s12chung/firm"
 )
 
-func TestErrCustomized_ValidateValue(t *testing.T) {
+func TestCustomizeErr_ValidateValue(t *testing.T) {
 	tcs := []struct {
 		name      string
 		data      any
@@ -46,29 +46,29 @@ func TestErrCustomized_ValidateValue(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			rule := ErrCustomized{Rule: multiErrorRule{}, CustomErr: tc.customErr}
-			require.Equal(t, tc.errorMap, rule.ValidateValue(reflect.ValueOf(tc.data)))
+			customized := CustomizeErr(multiErrorRule{}, tc.customErr)
+			require.Equal(t, tc.errorMap, customized.ValidateValue(reflect.ValueOf(tc.data)))
 		})
 	}
 }
 
-func TestErrCustomized_ErrorMapIsolation(t *testing.T) {
-	rule := ErrCustomized{
-		// Present shares a package-level ErrorMap, so CustomErr mutations must not leak
-		Rule: Present{},
-		CustomErr: func(m firm.ErrorMap) firm.ErrorMap {
+func TestCustomizeErr_ErrorMapIsolation(t *testing.T) {
+	customized := CustomizeErr(
+		// Present shares a package-level ErrorMap, so customErr mutations must not leak
+		Present{},
+		func(m firm.ErrorMap) firm.ErrorMap {
 			err := m["Present"]
 			err.Template = "mutated"
 			m["Present"] = err
 			return m
 		},
-	}
+	)
 
-	require.Equal(t, firm.ErrorMap{"Present": firm.TemplateError{Template: "mutated"}}, rule.ValidateValue(reflect.ValueOf("")))
+	require.Equal(t, firm.ErrorMap{"Present": firm.TemplateError{Template: "mutated"}}, customized.ValidateValue(reflect.ValueOf("")))
 	require.Equal(t, "Present: value is not present", Present{}.ErrorMap().Error())
 }
 
-func TestErrCustomized_TypeCheck(t *testing.T) {
+func TestCustomizeErr_TypeCheck(t *testing.T) {
 	i := 0
 	badCondition := "is not a int"
 
@@ -84,22 +84,22 @@ func TestErrCustomized_TypeCheck(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			customized := ErrCustomized{Rule: OneOf[int]{}, CustomErr: func(m firm.ErrorMap) firm.ErrorMap { return m }}
+			customized := CustomizeErr(OneOf[int]{}, func(m firm.ErrorMap) firm.ErrorMap { return m })
 			testTypeCheck(t, tc.data, "OneOf", tc.badCondition, customized)
 		})
 	}
 }
 
-func TestErrCustomized_ErrorMap(t *testing.T) {
-	rule := ErrCustomized{
-		Rule: OneOf[string]{Values: []string{"a"}},
-		CustomErr: func(m firm.ErrorMap) firm.ErrorMap {
+func TestCustomizeErr_ErrorMap(t *testing.T) {
+	customized := CustomizeErr(
+		OneOf[string]{Values: []string{"a"}},
+		func(m firm.ErrorMap) firm.ErrorMap {
 			err := m[oneOfName]
 			err.Template = "is none of {{.Values}}"
 			return firm.ErrorMap{"MyValues": err}
 		},
-	}
+	)
 
-	testErrorMap(t, rule, `MyValues: value is none of ["a"]`)
-	require.Equal(t, rule.ValidateValue(reflect.ValueOf("c")), rule.ErrorMap())
+	testErrorMap(t, customized, `MyValues: value is none of ["a"]`)
+	require.Equal(t, customized.ValidateValue(reflect.ValueOf("c")), customized.ErrorMap())
 }

@@ -10,15 +10,14 @@ import (
 	"github.com/s12chung/firm"
 )
 
-func andRules() And {
-	return And{Rules: []firm.RuleBasic{Len{Is: 5}, Match{Regexp: regexp.MustCompile(`^z`)}}}
+func andRules() AndWrap {
+	return And(Len{Is: 5}, Match{Regexp: regexp.MustCompile(`^z`)})
 }
 
 func TestAnd_ValidateValue(t *testing.T) {
 	tcs := []struct {
-		name string
-		rule And
-
+		name     string
+		rule     AndWrap
 		data     any
 		errorMap firm.ErrorMap
 	}{
@@ -40,7 +39,6 @@ func TestAnd_ValidateValue(t *testing.T) {
 			}},
 		},
 		{name: "all_rules_fail", data: "abc", rule: andRules(), errorMap: andRules().ErrorMap()},
-		{name: "no_rules", data: "", rule: And{}, errorMap: And{}.ErrorMap()},
 	}
 
 	for _, tc := range tcs {
@@ -50,9 +48,13 @@ func TestAnd_ValidateValue(t *testing.T) {
 	}
 }
 
+func TestAnd_WithoutRules(t *testing.T) {
+	require.PanicsWithValue(t, "And() called without rules", func() { And() })
+}
+
 //nolint:dupl // symmetric with TestOr_TypeCheck
 func TestAnd_TypeCheck(t *testing.T) {
-	stringRules := And{Rules: []firm.RuleBasic{TrimPresent{}, Present{}}}
+	stringRules := And(TrimPresent{}, Present{})
 	tcs := []struct {
 		name         string
 		data         any
@@ -67,7 +69,7 @@ func TestAnd_TypeCheck(t *testing.T) {
 			data:         "",
 			badCondition: "is not a int",
 			ruleName:     "OneOf",
-			rule:         And{Rules: []firm.RuleBasic{Len{Is: 5}, OneOf[int]{Values: []int{1}}}},
+			rule:         And(Len{Is: 5}, OneOf[int]{Values: []int{1}}),
 		},
 	}
 
@@ -79,7 +81,7 @@ func TestAnd_TypeCheck(t *testing.T) {
 }
 
 func TestAnd_ErrorMap(t *testing.T) {
-	rule := And{Rules: []firm.RuleBasic{Len{Is: 5}, Match{Regexp: regexp.MustCompile(`^z`)}}}
+	rule := And(Len{Is: 5}, Match{Regexp: regexp.MustCompile(`^z`)})
 	testErrorMap(t, rule, `Len: value does not have a length of 5, Match: value does not match ^z`)
 	require.Equal(t, rule.ValidateValue(reflect.ValueOf("abc")), rule.ErrorMap())
 }

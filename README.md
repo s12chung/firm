@@ -220,14 +220,14 @@ type RuleBasic interface {
 }
 ```
 
-| Rule | Checks |
+| Rule Constructor `func()` | Checks |
 | --- | --- |
-| `rule.Named{Name, Rule}` | renames the error key of `Rule` to `Name` |
-| `rule.ShowValue{Rule}` | appends the failing value to `Rule`'s messages: `Str is not one of ["a"]: "b"` |
-| `rule.ErrCustomized{Rule, CustomErr}` | customizes the ErrorMap of `Rule` through `CustomErr(firm.ErrorMap) firm.ErrorMap` |
-| `rule.Not{Rule}` | negates another rule |
-| `rule.Or{Rules}` | value is valid for any of the `Rules` |
-| `rule.And{Rules}` | value is valid for all of the `Rules` (only for easier composition--`[]Rule` is passed throughout in `firm.Validator` and `firm.Definition` as an AND) |
+| `rule.SetName(Name, Rule)` | renames the error key of `Rule` to `Name` |
+| `rule.ShowValue(Rule)` | appends the failing value to `Rule`'s messages: `ID is not one of ["a"]: "b"` |
+| `rule.CustomizeErr(Rule, func(ErrorMap) ErrorMap)` | customizes the ErrorMap of `Rule` through the `func` |
+| `rule.Not(Rule)` | negates another rule |
+| `rule.Or(Rules...)` | value is valid for any of the `Rules` |
+| `rule.And(Rules...)` | value is valid for all of the `Rules` (only for easier composition--`[]Rule` is passed throughout in `firm.Validator` and `firm.Definition` as an AND) |
 
 The following built-in rules implement `firm.RuleTyped[T any]`, which exposes `Validate(data T)` for convenience really:
 

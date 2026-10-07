@@ -34,7 +34,7 @@ func TestNot_ValidateValue(t *testing.T) {
 				err.Template += "--Not"
 				expected["Not"+k] = err
 			}
-			require.Equal(expected, Not{Rule: tc.rule}.ValidateValue(reflect.ValueOf(tc.data)))
+			require.Equal(expected, Not(tc.rule).ValidateValue(reflect.ValueOf(tc.data)))
 		})
 	}
 }
@@ -51,13 +51,13 @@ func TestNot_TypeCheck(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			testTypeCheck(t, tc.data, "TrimPresent", tc.badCondition, Not{Rule: TrimPresent{}})
+			testTypeCheck(t, tc.data, "TrimPresent", tc.badCondition, Not(TrimPresent{}))
 		})
 	}
 }
 
 func TestNot_ErrorMap(t *testing.T) {
-	rule := Not{Rule: Present{}}
-	testErrorMap(t, rule, "NotPresent: value is not present--Not")
-	require.Equal(t, rule.ValidateValue(reflect.ValueOf(" ")), rule.ErrorMap())
+	not := Not(Present{})
+	testErrorMap(t, not, "NotPresent: value is not present--Not")
+	require.Equal(t, not.ValidateValue(reflect.ValueOf(" ")), not.ErrorMap())
 }

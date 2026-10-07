@@ -10,22 +10,20 @@ import (
 	"github.com/s12chung/firm"
 )
 
-func orRules() Or {
-	return Or{Rules: []firm.RuleBasic{Len{Is: 5}, Match{Regexp: regexp.MustCompile(`^z`)}}}
+func orRules() OrWrap {
+	return Or(Len{Is: 5}, Match{Regexp: regexp.MustCompile(`^z`)})
 }
 
 func TestOr_ValidateValue(t *testing.T) {
 	tcs := []struct {
-		name string
-		rule Or
-
+		name     string
+		rule     OrWrap
 		data     any
 		errorMap firm.ErrorMap
 	}{
 		{name: "first_rule", data: "hello", rule: orRules()},
 		{name: "second_rule", data: "zup", rule: orRules()},
 		{name: "all_rules_fail", data: "abc", rule: orRules(), errorMap: orRules().ErrorMap()},
-		{name: "no_rules", data: "", rule: Or{}, errorMap: Or{}.ErrorMap()},
 	}
 
 	for _, tc := range tcs {
@@ -35,9 +33,13 @@ func TestOr_ValidateValue(t *testing.T) {
 	}
 }
 
+func TestOr_WithoutRules(t *testing.T) {
+	require.PanicsWithValue(t, "Or() called without rules", func() { Or() })
+}
+
 //nolint:dupl // symmetric with TestAnd_TypeCheck
 func TestOr_TypeCheck(t *testing.T) {
-	stringRules := Or{Rules: []firm.RuleBasic{TrimPresent{}, Present{}}}
+	stringRules := Or(TrimPresent{}, Present{})
 	tcs := []struct {
 		name         string
 		data         any
@@ -52,7 +54,7 @@ func TestOr_TypeCheck(t *testing.T) {
 			data:         "",
 			badCondition: "is not a int",
 			ruleName:     "OneOf",
-			rule:         Or{Rules: []firm.RuleBasic{Len{Is: 5}, OneOf[int]{Values: []int{1}}}},
+			rule:         Or(Len{Is: 5}, OneOf[int]{Values: []int{1}}),
 		},
 	}
 
@@ -64,7 +66,7 @@ func TestOr_TypeCheck(t *testing.T) {
 }
 
 func TestOr_ErrorMap(t *testing.T) {
-	rule := Or{Rules: []firm.RuleBasic{Len{Is: 5}, Match{Regexp: regexp.MustCompile(`^z`)}}}
+	rule := Or(Len{Is: 5}, Match{Regexp: regexp.MustCompile(`^z`)})
 	testErrorMap(t, rule, `Or: value is not any of [Len: value does not have a length of 5; Match: value does not match ^z]`)
 	require.Equal(t, rule.ValidateValue(reflect.ValueOf("abc")), rule.ErrorMap())
 }

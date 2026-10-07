@@ -32,26 +32,26 @@ func (m multiErrorRule) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 	return firm.NewRuleTypeError("multiErrorRule", typ, "is not a int")
 }
 
-func TestNamed_ValidateAll(t *testing.T) {
+func TestSetName_ValidateAll(t *testing.T) {
 	oneOf := OneOf[string]{Values: []string{"a"}}
-	named := Named{Name: "MyValues", Rule: oneOf}
+	setName := SetName("MyValues", oneOf)
 
-	require.Nil(t, named.ValidateValue(reflect.ValueOf("a")))
+	require.Nil(t, setName.ValidateValue(reflect.ValueOf("a")))
 
 	expected := firm.ErrorMap{"MyValues": oneOf.ErrorMap()[oneOfName]}
-	require.Equal(t, expected, named.ValidateValue(reflect.ValueOf("c")))
+	require.Equal(t, expected, setName.ValidateValue(reflect.ValueOf("c")))
 }
 
-func TestNamed_MultipleErrorKeys(t *testing.T) {
-	named := Named{Name: "My", Rule: multiErrorRule{}}
+func TestSetName_MultipleErrorKeys(t *testing.T) {
+	setName := SetName("My", multiErrorRule{})
 	inner := multiErrorRule{}.ErrorMap()
 
 	expected := firm.ErrorMap{"My-A": inner["A"], "My-B": inner["B"]}
-	require.Equal(t, expected, named.ValidateValue(reflect.ValueOf(0)))
-	require.Equal(t, expected, named.ErrorMap())
+	require.Equal(t, expected, setName.ValidateValue(reflect.ValueOf(0)))
+	require.Equal(t, expected, setName.ErrorMap())
 }
 
-func TestNamed_TypeCheck(t *testing.T) {
+func TestSetName_TypeCheck(t *testing.T) {
 	i := 0
 	badCondition := "is not a int"
 
@@ -67,11 +67,11 @@ func TestNamed_TypeCheck(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			testTypeCheck(t, tc.data, "MyValues", tc.badCondition, Named{Name: "MyValues", Rule: OneOf[int]{}})
+			testTypeCheck(t, tc.data, "MyValues", tc.badCondition, SetName("MyValues", OneOf[int]{}))
 		})
 	}
 }
 
-func TestNamed_ErrorMap(t *testing.T) {
-	testErrorMap(t, Named{Name: "MyValues", Rule: OneOf[string]{Values: []string{"a", "b"}}}, "MyValues: value is not one of [\"a\" \"b\"]")
+func TestSetName_ErrorMap(t *testing.T) {
+	testErrorMap(t, SetName("MyValues", OneOf[string]{Values: []string{"a", "b"}}), "MyValues: value is not one of [\"a\" \"b\"]")
 }

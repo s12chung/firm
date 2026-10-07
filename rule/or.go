@@ -9,12 +9,15 @@ import (
 
 const orName = "Or"
 
-// Or checks if data passes any one of .Rules
-type Or struct{ Rules []firm.RuleBasic }
+// Or returns a Rule that checks if data passes any one of rules, panics without rules
+func Or(rules ...firm.RuleBasic) OrWrap { return OrWrap{rulesOrPanic(rules, "Or")} }
 
-// ValidateValue passes if any one of the Rules pass (assumes TypeCheck is called)
-func (o Or) ValidateValue(value reflect.Value) firm.ErrorMap {
-	for _, rule := range o.Rules {
+// OrWrap checks if data passes any one of its Rules
+type OrWrap struct{ rules []firm.RuleBasic }
+
+// ValidateValue passes if any one of its Rules pass (assumes TypeCheck is called)
+func (o OrWrap) ValidateValue(value reflect.Value) firm.ErrorMap {
+	for _, rule := range o.rules {
 		if rule.ValidateValue(value).ToNil() == nil {
 			return nil
 		}
@@ -23,8 +26,8 @@ func (o Or) ValidateValue(value reflect.Value) firm.ErrorMap {
 }
 
 // TypeCheck checks whether the type is valid for every Rule
-func (o Or) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
-	for _, rule := range o.Rules {
+func (o OrWrap) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
+	for _, rule := range o.rules {
 		if err := rule.TypeCheck(typ); err != nil {
 			return err
 		}
@@ -33,9 +36,9 @@ func (o Or) TypeCheck(typ reflect.Type) *firm.RuleTypeError {
 }
 
 // ErrorMap returns the ErrorMap returned from ValidateValue
-func (o Or) ErrorMap() firm.ErrorMap {
+func (o OrWrap) ErrorMap() firm.ErrorMap {
 	return firm.ErrorMap{orName: firm.TemplateError{
-		TemplateFields: map[string]string{"Errors": rulesStr(o.Rules)},
+		TemplateFields: map[string]string{"Errors": rulesStr(o.rules)},
 		Template:       "is not any of {{.Errors}}",
 	}}
 }

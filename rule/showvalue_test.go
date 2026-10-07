@@ -12,7 +12,7 @@ import (
 func TestShowValue_ValidateValue(t *testing.T) {
 	require := require.New(t)
 
-	shown := ShowValue{Rule: multiErrorRule{}}
+	shown := ShowValue(multiErrorRule{})
 	require.Nil(shown.ValidateValue(reflect.ValueOf(1)))
 	require.Equal(firm.ErrorMap{
 		"A": firm.TemplateError{Template: "is a: {{value}}"},
@@ -24,7 +24,7 @@ func TestShowValue_ErrorMapIsolation(t *testing.T) {
 	require := require.New(t)
 
 	// Present shares a package-level ErrorMap, so the suffix must not leak into it
-	shown := ShowValue{Rule: Present{}}
+	shown := ShowValue(Present{})
 
 	require.Equal(firm.ErrorMap{"Present": firm.TemplateError{Template: "is not present: {{value}}"}},
 		shown.ValidateValue(reflect.ValueOf("")))
@@ -32,7 +32,7 @@ func TestShowValue_ErrorMapIsolation(t *testing.T) {
 }
 
 func TestShowValue_TypeCheck(t *testing.T) {
-	shown := ShowValue{Rule: OneOf[int]{}}
+	shown := ShowValue(OneOf[int]{})
 	testTypeCheck(t, 0, "OneOf", "", shown)
 	testTypeCheck(t, "", "OneOf", "is not a int", shown)
 }
@@ -42,7 +42,7 @@ func TestShowValue_validates(t *testing.T) {
 
 	type config struct{ Str string }
 	validator := firm.Fields[config](firm.RuleMap{
-		"Str": {ShowValue{Rule: OneOf[string]{Values: []string{"a"}}}},
+		"Str": {ShowValue(OneOf[string]{Values: []string{"a"}})},
 	})
 	require.Nil(validator.Validate(config{Str: "a"}))
 
