@@ -17,7 +17,7 @@ func TestErrorMap_Error(t *testing.T) {
 	require.Equal("A: value field A message, B: value field B message", errorMap.Error())
 }
 
-func TestErrorMap_ErrorWithPrefix(t *testing.T) {
+func TestErrorMap_ErrorWith(t *testing.T) {
 	require := require.New(t)
 
 	errorMap := ErrorMap{
@@ -25,7 +25,9 @@ func TestErrorMap_ErrorWithPrefix(t *testing.T) {
 		"B": TemplateError{Template: "field B message"},
 	}
 	require.Equal("A: value：field A message, B: value：field B message",
-		errorMap.ErrorWithPrefix("{{.ValueName}}："))
+		errorMap.ErrorWith("{{.ValueName}}：", ""))
+	require.Equal("A: value field A message!, B: value field B message!",
+		errorMap.ErrorWith("{{.ValueName}} ", "!"))
 }
 
 func TestErrorMap_Merge(t *testing.T) {
@@ -129,18 +131,21 @@ func TestTemplateError_Error(t *testing.T) {
 	}
 }
 
-func TestTemplateError_ErrorWithPrefix(t *testing.T) {
+func TestTemplateError_ErrorWith(t *testing.T) {
 	tcs := []struct {
 		name     string
 		prefix   string
+		suffix   string
 		template string
 		expected string
 	}{
 		{name: "default", prefix: "{{.ValueName}} ", expected: "MyField has no Jack and Jill since it's of type: pkger.Mover"},
 		{name: "custom_separator", prefix: "{{.ValueName}}：", expected: "MyField：has no Jack and Jill since it's of type: pkger.Mover"},
 		{name: "other_fields", prefix: "[{{.RootTypeName}}] ", expected: "[pkger.Mover] has no Jack and Jill since it's of type: pkger.Mover"},
-		{name: "none", prefix: "", expected: "has no Jack and Jill since it's of type: pkger.Mover"},
-		{name: "subject_last", prefix: "", template: "{{ .Him }}が必要な{{.ValueName}}ではありません", expected: "Jackが必要なMyFieldではありません"},
+		{name: "suffix", prefix: "{{.ValueName}} ", suffix: " (like {{ .Him }})",
+			expected: "MyField has no Jack and Jill since it's of type: pkger.Mover (like Jack)"},
+		{name: "none", expected: "has no Jack and Jill since it's of type: pkger.Mover"},
+		{name: "subject_last", template: "{{ .Him }}が必要な{{.ValueName}}ではありません", expected: "Jackが必要なMyFieldではありません"},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -150,7 +155,7 @@ func TestTemplateError_ErrorWithPrefix(t *testing.T) {
 			if tc.template != "" {
 				templateError.Template = tc.template
 			}
-			require.Equal(tc.expected, templateError.ErrorWithPrefix(tc.prefix))
+			require.Equal(tc.expected, templateError.ErrorWith(tc.prefix, tc.suffix))
 		})
 	}
 }

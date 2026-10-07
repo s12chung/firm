@@ -17,13 +17,13 @@ const valueNamePrefix = "{{.ValueName}} "
 type ErrorMap map[ErrorKey]TemplateError
 
 // Error returns the error string for the ErrorMap
-func (e ErrorMap) Error() string { return e.ErrorWithPrefix(valueNamePrefix) }
+func (e ErrorMap) Error() string { return e.ErrorWith(valueNamePrefix, "") }
 
-// ErrorWithPrefix returns the error string for the ErrorMap, with prefix passed to each TemplateError.ErrorWithPrefix
-func (e ErrorMap) ErrorWithPrefix(prefix string) string {
+// ErrorWith returns the error string for the ErrorMap, with prefix and suffix passed to each TemplateError.ErrorWith
+func (e ErrorMap) ErrorWith(prefix, suffix string) string {
 	errs := make([]string, len(e))
 	for i, k := range e.sortedKeys() {
-		errs[i] = string(k) + ": " + e[k].ErrorWithPrefix(prefix)
+		errs[i] = string(k) + ": " + e[k].ErrorWith(prefix, suffix)
 	}
 	return strings.Join(errs, ", ")
 }
@@ -76,12 +76,13 @@ type TemplateError struct {
 }
 
 // Error returns a string for the error, prefixed with its ValueName
-func (t TemplateError) Error() string { return t.ErrorWithPrefix(valueNamePrefix) }
+func (t TemplateError) Error() string { return t.ErrorWith(valueNamePrefix, "") }
 
-// ErrorWithPrefix returns a string for the error, with prefix--parsed as a template
-func (t TemplateError) ErrorWithPrefix(prefix string) string {
+// ErrorWith returns a string for the error, with prefix and suffix,
+// each parsed as a template
+func (t TemplateError) ErrorWith(prefix, suffix string) string {
 	badTemplateString := t.Template + " (bad format)"
-	temp, err := template.New("top").Parse(prefix + t.Template)
+	temp, err := template.New("top").Parse(prefix + t.Template + suffix)
 	if err != nil {
 		return badTemplateString
 	}

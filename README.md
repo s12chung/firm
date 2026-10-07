@@ -80,7 +80,7 @@ func readConfig(body []byte) (Config, error) {
 }
 ```
 
-Validation failures return `firm.ErrorMap` (a map of `firm.ErrorKey` to `firm.TemplateError`), which implements `error`. Error messages prefix their `ValueName` (ex. "POS" in "POS is nil"), change this prefix via. calling `ErrorWithPrefix()` instead of `Error()`.
+Validation failures return `firm.ErrorMap` (a map of `firm.ErrorKey` to `firm.TemplateError`), which implements `error`. Error messages prefix their `ValueName` (ex. "POS" in "POS is nil"); use `ErrorWith()` to change it or add a suffix.
 
 `firm.ErrorKey` is easy to inspect or remap errors programmatically. Its keys encode the path to the failure with helpers (`RootTypeName()/ValueName()/ErrorName()`):
 
