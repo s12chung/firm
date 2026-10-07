@@ -25,14 +25,14 @@ type Query struct {
 
 func init() {
 	//
-	// Define validations in `init()` to avoid concurrent `map` changes
+	// Register validation definitions in `init()`
 	//
 	firm.MustRegisterType(firm.NewDefinition[Config]().
 		// On the `Config` struct "itself", NOT the `Config`'s fields
 		ValidatesSelf(rule.Present{}).
 		Validates(firm.RuleMap{
 			"Queries": {firm.Elems[[]Query](
-				// `firm.Backed()` - validate using registration for `Query` below
+				// `firm.Backed()` - validate with `Query` registration
 				// Basically, explicit recursion
 				firm.Backed(),
 			)},

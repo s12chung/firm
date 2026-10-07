@@ -10,7 +10,7 @@
 
 ## Quickstart
 
-Register a definition per type, then validate.
+Register a validation definition per type, then validate.
 
 ```go
 type Query struct {
@@ -29,7 +29,7 @@ func validateQuery(query Query) error {
 }
 ```
 
-Or the longer and commented version:
+Or the longer version:
 
 ```go
 //
@@ -46,14 +46,14 @@ type Query struct {
 
 func init() {
 	//
-	// Define validations in `init()` to avoid concurrent `map` changes
+	// Register validation definitions in `init()`
 	//
 	firm.MustRegisterType(firm.NewDefinition[Config]().
 		// On the `Config` struct "itself", NOT the `Config`'s fields
 		ValidatesSelf(rule.Present{}).
 		Validates(firm.RuleMap{
 			"Queries": {firm.Elems[[]Query](
-				// `firm.Backed()` - validate using registration for `Query` below
+				// `firm.Backed()` - validate with `Query` registration
 				// Basically, explicit recursion
 				firm.Backed(),
 			)},
@@ -71,7 +71,7 @@ func readConfig(body []byte) (Config, error) {
 		return Config{}, err
 	}
 	//
-	// Run validation (Step 2 of 2)
+	// Run validation
 	//
 	if errMap := firm.ValidateAny(config); errMap != nil {
 		return Config{}, errMap
@@ -80,16 +80,9 @@ func readConfig(body []byte) (Config, error) {
 }
 ```
 
-Validation failures return `firm.ErrorMap` (a map of `firm.ErrorKey` to `firm.TemplateError`), which implements `error`. Error messages prefix their `ValueName` (ex. "POS" in "POS is nil"); use `ErrorWith()` to change it or add a suffix (templated with `{{value}}`, `{{.ValueName}}`, `{{RootTypeName}}` and `TemplateError.TemplateFields` key/values).
+## Validation Errors
 
-`firm.ErrorKey` is easy to inspect or remap errors programmatically. Its keys encode the path to the failure with helpers (`RootTypeName()/ValueName()/ErrorName()`):
-
-```text
-// |  root type   | |-----value-----| error
-// <package>.<Type>.<field>.[<index>].<Rule>
-```
-
-Try running the code above in [cmd/firm-try/main.go](cmd/firm-try/main.go)--each command's output is commented below and demonstrates easy i18n:
+Try running the code above in [cmd/firm-try/main.go](cmd/firm-try/main.go) and demonstrates easy i18n:
 
 ```sh
 go run github.com/s12chung/firm/cmd/firm-try@latest '{"queries":[{"str":""},{"pos":"Noun"}]}'
@@ -103,6 +96,18 @@ go run github.com/s12chung/firm/cmd/firm-try@latest '{}'
 go run github.com/s12chung/firm/cmd/firm-try@latest '{"queries":[{"str":"hello","pos":"Noun"}]}'
 # valid
 ```
+
+Validation failures return `firm.ErrorMap` (a map of `firm.ErrorKey` to `firm.TemplateError`), which implements `error`.
+
+```text
+// `firm.ErrorKey` format
+|RootTypeName()| |--ValueName()--| ErrorName()
+<package>.<Type>.<field>.[<index>].<Rule>
+```
+
+Error messages prefix their `ValueName` (ex. "POS" in "POS is nil"); use `ErrorWith()` to change it or add a suffix (templated with `{{value}}`, `{{.ValueName}}`, `{{RootTypeName}}` and `TemplateError.TemplateFields` key/values).
+
+You can also use `rule.ShowValue(Rule)`/`rule.CustomizeErr()` to customize Rule errors.
 
 ## Validation Levels
 ```text
@@ -319,8 +324,6 @@ type ValidatorTyped[T any] interface {
 	Validate(data T) ErrorMap
 }
 ```
-
-See [Implementing Validators](#implementing-validators) for more.
 
 ## Recursion
 
