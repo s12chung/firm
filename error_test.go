@@ -2,6 +2,7 @@ package firm
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -158,6 +159,58 @@ func TestTemplateError_ErrorWith(t *testing.T) {
 			require.Equal(tc.expected, templateError.ErrorWith(tc.prefix, tc.suffix))
 		})
 	}
+}
+
+func TestTemplateError_valueString(t *testing.T) {
+	tcs := []struct {
+		name     string
+		value    reflect.Value
+		limit    int
+		expected string
+	}{
+		{name: "string", value: reflect.ValueOf("Noun"), expected: `"Noun"`},
+		{name: "empty_string", value: reflect.ValueOf(""), expected: `""`},
+		{name: "spaces", value: reflect.ValueOf("  "), expected: `"  "`},
+		{name: "capped_string", value: reflect.ValueOf(strings.Repeat("a", 60)), expected: `"` + strings.Repeat("a", valueCap) + `"...`},
+		{name: "rune_boundary", value: reflect.ValueOf(strings.Repeat("あ", 20)), limit: 50, expected: `"` + strings.Repeat("あ", 16) + `"...`},
+		{name: "custom_limit", value: reflect.ValueOf("Noun"), limit: 2, expected: `"No"...`},
+		{name: "int", value: reflect.ValueOf(42), expected: "42"},
+		{name: "float", value: reflect.ValueOf(3.5), expected: "3.5"},
+		{name: "bool", value: reflect.ValueOf(false), expected: "false"},
+		{name: "slice", value: reflect.ValueOf([]string{"a"}), expected: "[]string (len 1)"},
+		{name: "map", value: reflect.ValueOf(map[string]int{}), expected: "map[string]int (len 0)"},
+		{name: "struct", value: reflect.ValueOf(TemplateError{}), expected: "firm.TemplateError"},
+		{name: "nil_ptr", value: reflect.ValueOf((*int)(nil)), expected: "<nil>"},
+		{name: "not_captured", value: reflect.Value{}, expected: "<no value>"},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
+
+			templateError := TemplateError{value: tc.value}
+			if tc.limit > 0 {
+				require.Equal(tc.expected, templateError.valueString(tc.limit))
+			} else {
+				require.Equal(tc.expected, templateError.valueString())
+			}
+		})
+	}
+}
+
+func TestTemplateError_valueTemplateFunc(t *testing.T) {
+	require := require.New(t)
+
+	templateError := TemplateError{
+		ErrorKey:       fullTemplateErrorKey,
+		Template:       "is not one of {{.Values}}: {{value}}",
+		TemplateFields: map[string]string{"Values": "Noun, Verb"},
+		value:          reflect.ValueOf("Noun"),
+	}
+	require.Equal(`MyField is not one of Noun, Verb: "Noun"`, templateError.Error())
+	require.Equal(`MyField is not one of Noun, Verb: "Noun" (got "No"...)`,
+		templateError.ErrorWith(valueNamePrefix, " (got {{value 2}})"))
+	require.Equal(`MyField is nil: <no value>`,
+		TemplateError{ErrorKey: fullTemplateErrorKey, Template: "is nil: {{value}}"}.Error())
 }
 
 func TestErrorKey_RootTypeName(t *testing.T) {

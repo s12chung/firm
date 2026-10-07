@@ -371,7 +371,7 @@ func TestRegistry_NotNil(t *testing.T) {
 
 			registry := &Registry{}
 			require.NoError(registry.RegisterType(tc.definition))
-			require.Equal(expected, registry.ValidateAny(tc.data))
+			require.Equal(expected, valueless(registry.ValidateAny(tc.data)))
 			require.Nil(registry.ValidateAny(registryNotNil{Str: "ok", Pt: &registryChild{}}))
 		})
 	}

@@ -9,6 +9,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type sharedMapRule struct{ errorMap ErrorMap }
+
+func (s sharedMapRule) ValidateValue(reflect.Value) ErrorMap    { return s.errorMap }
+func (s sharedMapRule) TypeCheck(_ reflect.Type) *RuleTypeError { return nil }
+
+func TestImplValidateMerge_withValue(t *testing.T) {
+	require := require.New(t)
+
+	shared := ErrorMap{"OneOf": {Template: "is not one of"}}
+	value := reflect.ValueOf("Noun")
+	errorMap := ErrorMap{}
+	ImplValidateMerge(value, "pkger.Mover.Field", errorMap, []Rule{sharedMapRule{shared}})
+
+	captured := errorMap["pkger.Mover.Field.OneOf"].value
+	require.Equal(value.Interface(), captured.Interface())
+	// the shared rule ErrorMap is not mutated
+	require.False(shared["OneOf"].value.IsValid())
+}
+
 type structValidatorTestCase struct {
 	name      string
 	f         func() parent
@@ -1194,7 +1213,7 @@ func TestFieldsVldr_NotNil(t *testing.T) {
 	t.Run("non_nil_pointer_still_validates", func(t *testing.T) {
 		errorKey := ErrorKey("firm.notNilStruct.Pt." + presentRuleKey)
 		expected := ErrorMap{errorKey: *presentRuleError(errorKey)}
-		require.Equal(t, expected, newValidator().NotNil("Pt").Validate(notNilStruct{Str: "ok", Pt: &Child{}}))
+		require.Equal(t, expected, valueless(newValidator().NotNil("Pt").Validate(notNilStruct{Str: "ok", Pt: &Child{}})))
 	})
 }
 

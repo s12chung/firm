@@ -130,6 +130,16 @@ func joinAll(keys []string, suffix string) []string {
 	return joined
 }
 
+// valueless returns errorMap with captured values cleared, for structural comparison
+// against expected maps--which do not capture values
+func valueless(errorMap ErrorMap) ErrorMap {
+	for key, templateError := range errorMap {
+		templateError.value = reflect.Value{}
+		errorMap[key] = templateError
+	}
+	return errorMap
+}
+
 // testValidateAll asserts ValidateAny/ValidateValue/ValidateMerge, expecting err keyed at every keySuffix
 func testValidateAll(t *testing.T, validator Validator, data any, err *TemplateError, keySuffixes ...string) {
 	testValidateAllExpected(t, false, validator, data, suffixErrorMap(err, keySuffixes))
@@ -172,10 +182,10 @@ func testValidateAllExpected(t *testing.T, skipValidate bool, validator Validato
 	validateExpected = validateExpected.ToNil()
 
 	if !skipValidate {
-		require.Equal(validateExpected, validator.ValidateAny(data))
+		require.Equal(validateExpected, valueless(validator.ValidateAny(data)))
 	}
 	indirectValue := indirect(reflect.ValueOf(data))
-	require.Equal(validateValueExpected, validator.ValidateValue(indirectValue))
+	require.Equal(validateValueExpected, valueless(validator.ValidateValue(indirectValue)))
 
 	errorKey := "pkger.Mover.Parent"
 	errorMap := ErrorMap{"Existing": TemplateError{}}
@@ -188,7 +198,7 @@ func testValidateAllExpected(t *testing.T, skipValidate bool, validator Validato
 	}
 	indirectValue = indirect(reflect.ValueOf(data))
 	validator.ValidateMerge(indirectValue, errorKey, errorMap)
-	require.Equal(expectedErrorMap, errorMap)
+	require.Equal(expectedErrorMap, valueless(errorMap))
 }
 
 type validateTC[T any] struct {
@@ -204,8 +214,8 @@ func testValidate[T any](t *testing.T, tcs []validateTC[T], newValidator func() 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			require := require.New(t)
-			require.Equal(tc.result, validator.Validate(tc.data))
-			require.Equal(tc.result, validator.ValidateAny(tc.data))
+			require.Equal(tc.result, valueless(validator.Validate(tc.data)))
+			require.Equal(tc.result, valueless(validator.ValidateAny(tc.data)))
 		})
 	}
 }

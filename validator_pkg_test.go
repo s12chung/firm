@@ -1,6 +1,7 @@
 package firm_test
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -10,6 +11,15 @@ import (
 	"github.com/s12chung/firm"
 	"github.com/s12chung/firm/rule"
 )
+
+// exportedEqual asserts exported-field equality--ignoring the unexported captured value
+func exportedEqual(require *require.Assertions, expected, actual firm.ErrorMap) {
+	expectedJSON, err := json.Marshal(expected)
+	require.NoError(err)
+	actualJSON, err := json.Marshal(actual)
+	require.NoError(err)
+	require.JSONEq(string(expectedJSON), string(actualJSON))
+}
 
 type nonExport struct {
 	privateChild
@@ -58,7 +68,7 @@ func TestFieldsWithErrPkg(t *testing.T) {
 			}
 			require.NoError(err)
 			require.Nil(validator.ValidateAny(notEmpty))
-			require.Equal(tc.failErr, validator.ValidateAny(nonExport{}))
+			require.Equal(tc.failErr.Error(), validator.ValidateAny(nonExport{}).Error())
 		})
 	}
 }
@@ -111,14 +121,14 @@ func TestCustomValidatorPkg(t *testing.T) {
 
 	// ImplValidate - typed Validate(), no TypeCheck
 	require.Nil(v.Validate(1))
-	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.Validate(-1))
+	exportedEqual(require, firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.Validate(-1))
 
 	// ImplValidateAny - unsafe values are indirected; nil pointers are skipped by default
 	require.Nil(v.ValidateAny(1))
-	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(-1))
+	exportedEqual(require, firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(-1))
 
 	i := -1
-	require.Equal(firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(&i))
+	exportedEqual(require, firm.ErrorMap{"int.Greater": keyed("int.Greater", greaterErr)}, v.ValidateAny(&i))
 	require.Nil(v.ValidateAny(nil))
 
 	var pti *int
@@ -126,7 +136,7 @@ func TestCustomValidatorPkg(t *testing.T) {
 	require.Equal(firm.ErrorMap{"TypeCheck": typeCheckErr}, v.ValidateAny("str"))
 
 	// ImplValidateValue - safe value, assumes TypeCheck is called
-	require.Equal(firm.ErrorMap{"Greater": keyed("Greater", greaterErr)}, v.ValidateValue(reflect.ValueOf(-1)))
+	exportedEqual(require, firm.ErrorMap{"Greater": keyed("Greater", greaterErr)}, v.ValidateValue(reflect.ValueOf(-1)))
 	require.Nil(v.ValidateValue(reflect.ValueOf(1)))
 	require.Panics(func() { _ = v.ValidateValue(reflect.Value{}) }) // safe values are expected
 
@@ -134,7 +144,7 @@ func TestCustomValidatorPkg(t *testing.T) {
 	errorMap := firm.ErrorMap{}
 	v.ValidateMerge(reflect.ValueOf(-1), "Positive", errorMap)
 	require.Panics(func() { v.ValidateMerge(reflect.Value{}, "Positive", errorMap) }) // safe values are expected
-	require.Equal(firm.ErrorMap{
+	exportedEqual(require, firm.ErrorMap{
 		"Positive.Greater": keyed("Positive.Greater", greaterErr),
 	}, errorMap)
 }

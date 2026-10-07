@@ -1,15 +1,20 @@
 package firm
 
 import (
+	"fmt"
 	"maps"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
+	"unicode/utf8"
 )
 
-// valueNamePrefix is the default Error prefix--the error's subject (ex. "Str is not present")
-const valueNamePrefix = "{{.ValueName}} "
+const (
+	valueNamePrefix = "{{.ValueName}} " // default Error prefix--the error's subject (ex. "Str is not present")
+	valueCap        = 50                // default {{value}} render cap
+)
 
 // ErrorMap is a map of TemplateError keys to their respective TemplateError
 //
@@ -60,6 +65,17 @@ func (e ErrorMap) Clone() ErrorMap {
 	return clone
 }
 
+// withValue returns a copy of e with value captured on each TemplateError--never
+// mutating e, as Rules can return shared ErrorMaps
+func (e ErrorMap) withValue(value reflect.Value) ErrorMap {
+	withValue := make(ErrorMap, len(e))
+	for key, templateError := range e {
+		templateError.value = value
+		withValue[key] = templateError
+	}
+	return withValue
+}
+
 // ToNil returns itself or nil if it's empty
 func (e ErrorMap) ToNil() ErrorMap {
 	if len(e) == 0 {
@@ -73,16 +89,20 @@ type TemplateError struct {
 	Template       string
 	TemplateFields map[string]string
 	ErrorKey       ErrorKey
+	// captured at validation time, rendered by the {{value}} template func so it's never serialized
+	value reflect.Value
 }
 
 // Error returns a string for the error, prefixed with its ValueName
 func (t TemplateError) Error() string { return t.ErrorWith(valueNamePrefix, "") }
 
 // ErrorWith returns a string for the error, with prefix and suffix,
-// each parsed as a template
+// each parsed as a template. {{value}} renders the captured failing value (ex. `{{value 20}}`)
 func (t TemplateError) ErrorWith(prefix, suffix string) string {
 	badTemplateString := t.Template + " (bad format)"
-	temp, err := template.New("top").Parse(prefix + t.Template + suffix)
+	temp, err := template.New("top").Funcs(template.FuncMap{
+		"value": t.valueString,
+	}).Parse(prefix + t.Template + suffix)
 	if err != nil {
 		return badTemplateString
 	}
@@ -107,6 +127,55 @@ func (t TemplateError) ErrorWith(prefix, suffix string) string {
 		return badTemplateString
 	}
 	return sb.String()
+}
+
+// valueString renders the captured value: quoted capped strings (ex. `"Nou...`), numbers/bools
+// as-is, composites as type names--nil / never-captured values render `<nil>` / `<no value>`
+func (t TemplateError) valueString(limits ...int) string {
+	// limit is variadic, not a plain arg, because text/template dispatches on exact arity--
+	// the optional cap lets one FuncMap name serve both `{{value}}` and `{{value 20}}` (like printf)
+	limit := valueCap
+	if len(limits) > 0 {
+		limit = limits[0]
+	}
+
+	value := t.value
+	if !value.IsValid() {
+		return "<no value>"
+	}
+	for value.Kind() == reflect.Interface || value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return "<nil>"
+		}
+		value = value.Elem()
+	}
+	switch value.Kind() {
+	case reflect.String:
+		return quoteCapped(value.String(), limit)
+	case reflect.Slice, reflect.Array, reflect.Map:
+		// composite fields/elements produce their own errors, so name the type only
+		return fmt.Sprintf("%v (len %d)", value.Type(), value.Len())
+	case reflect.Struct, reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		return value.Type().String()
+	default:
+		return fmt.Sprintf("%v", value.Interface())
+	}
+}
+
+// quoteCapped returns s strconv.Quote'd, truncated to limit bytes on a rune boundary
+func quoteCapped(s string, limit int) string {
+	truncated := false
+	if len(s) > limit {
+		for limit > 0 && !utf8.RuneStart(s[limit]) {
+			limit--
+		}
+		s, truncated = s[:limit], true
+	}
+	quoted := strconv.Quote(s)
+	if truncated {
+		quoted += "..."
+	}
+	return quoted
 }
 
 // ErrorKey is a string that has helper functions relating to error keys

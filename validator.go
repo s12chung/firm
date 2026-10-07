@@ -390,7 +390,8 @@ func ImplValidateValue(validator Validator, value reflect.Value) ErrorMap {
 func ImplValidateMerge(value reflect.Value, key string, errorMap ErrorMap, rules []Rule) {
 	MustValidValue(value)
 	for _, rule := range rules {
-		errorMap.Merge(key, rule.ValidateValue(value))
+		// withValue captures the failing value for the {{value}} template func
+		errorMap.Merge(key, rule.ValidateValue(value).withValue(value))
 	}
 }
 

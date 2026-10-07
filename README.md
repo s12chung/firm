@@ -80,7 +80,7 @@ func readConfig(body []byte) (Config, error) {
 }
 ```
 
-Validation failures return `firm.ErrorMap` (a map of `firm.ErrorKey` to `firm.TemplateError`), which implements `error`. Error messages prefix their `ValueName` (ex. "POS" in "POS is nil"); use `ErrorWith()` to change it or add a suffix.
+Validation failures return `firm.ErrorMap` (a map of `firm.ErrorKey` to `firm.TemplateError`), which implements `error`. Error messages prefix their `ValueName` (ex. "POS" in "POS is nil"); use `ErrorWith()` to change it or add a suffix (templated with `{{value}}`, `{{.ValueName}}`, `{{RootTypeName}}` and `TemplateError.TemplateFields` key/values).
 
 `firm.ErrorKey` is easy to inspect or remap errors programmatically. Its keys encode the path to the failure with helpers (`RootTypeName()/ValueName()/ErrorName()`):
 
@@ -223,6 +223,7 @@ type RuleBasic interface {
 | Rule | Checks |
 | --- | --- |
 | `rule.Named{Name, Rule}` | renames the error key of `Rule` to `Name` |
+| `rule.ShowValue{Rule}` | appends the failing value to `Rule`'s messages: `Str is not one of ["a"]: "b"` |
 | `rule.ErrCustomized{Rule, CustomErr}` | customizes the ErrorMap of `Rule` through `CustomErr(firm.ErrorMap) firm.ErrorMap` |
 | `rule.Not{Rule}` | negates another rule |
 | `rule.Or{Rules}` | value is valid for any of the `Rules` |
